@@ -2,27 +2,15 @@ package Mac::AppleEvents::Simple;
 
 use Mac::AppleEvents;
 use Mac::Apps::Launch;
-use vars qw(@ISA @EXPORT $VERSION);
+use vars qw(@ISA @EXPORT $VERSION $SWITCH);
 use strict;
 use Exporter;
 use Carp;
 @ISA = qw(Exporter);
-@EXPORT = qw(do_event get_text);
-$VERSION = sprintf("%d.%02d", q$Revision: 0.02 $ =~ /(\d+)\.(\d+)/);
+@EXPORT = qw(do_event build_event get_text);
+$VERSION = sprintf("%d.%02d", q$Revision: 0.10 $ =~ /(\d+)\.(\d+)/);
 
-sub new {
-	my $pkg = shift or croak('Not enough parameters');
-	my $self = bless _construct(@_), $pkg;
-	$self->_build_event();
-	$self->_print_desc('EVT');
-	$self;
-}
-
-sub get_text {
-	my($self, @arr) = $_[0];
-	push @arr, $1 while ($self =~ /Ò([^Ó]*)Ó/g);
-	return wantarray ? @arr : $arr[0];
-}
+$SWITCH = 1;
 
 sub do_event {
 	my $self = bless _construct(@_), __PACKAGE__;
@@ -33,12 +21,28 @@ sub do_event {
 	$self;
 }
 
-sub ae_send {
+sub build_event {
+	my $self = bless _construct(@_), __PACKAGE__;
+	$self->_build_event();
+	$self->_print_desc('EVT');
+	$self;
+}
+
+sub send_event {
 	my $self = shift;
 	$self->_send_event(@_);
 	$self->_print_desc('EVT');
 	$self->_print_desc('REP');
 	$self;
+}
+
+# deprecated name
+*ae_send = \&send_event;
+
+sub get_text {
+	my($self, @arr) = $_[0];
+	push @arr, $1 while ($self =~ /Ò([^Ó]*)Ó/g);
+	return wantarray ? @arr : $arr[0];
 }
 
 sub _construct {
@@ -60,10 +64,18 @@ sub _build_event {
 
 sub _send_event {
 	my $self = shift;
-	LaunchApps([$self->{APP}], 1);
-	$self->{REP} = AESend($self->{EVT}, kAEWaitReply(),
-		kAENormalPriority(), 60*60*9999)
-		or croak $^E;
+
+	# note: if $SWITCH is 0, will not switch; but we want to run this
+	# if app is not already running.  but it would take longer to find
+	# out if app _is_ running than it would to just launch it anyway, 
+	# even if it is already running.
+	LaunchApps([$self->{APP}], $SWITCH);
+
+	$self->{R} = defined($_[0]) || $self->{REPLY}    || kAEWaitReply();
+	$self->{P} = defined($_[1]) || $self->{PRIORITY} || kAENormalPriority();
+	$self->{T} = defined($_[2]) || $self->{PRIORITY} || 3600*9999;
+
+	$self->{REP} = AESend(@{$self}{'EVT', 'R', 'P', 'T'}) or croak $^E;
 }
 
 sub _print_desc {
@@ -88,9 +100,15 @@ Mac::AppleEvents::Simple - MacPerl module to do Apple Events more simply
 
 	#!perl -w
 	use Mac::AppleEvents::Simple;
-	use Mac::Files;
+	use Mac::Files;  # for NewAliasMinimal()
 	$alias = NewAliasMinimal(scalar MacPerl::Volumes);
 	do_event(qw/aevt odoc MACS/, "'----':alis(\@\@)", $alias);
+
+	# [...]
+	use Mac::AppleEvents;  # for kAENoReply()
+	$evt = build_event(qw/aevt odoc MACS/, "'----':alis(\@\@)", $alias);
+	$evt->send_event(kAENoReply());
+	
 
 =head1 DESCRIPTION
 
@@ -120,6 +138,13 @@ object from the reply like this:
 
 So you can still mess around with the events if you need to.
 
+The sending of the event uses as its defaults C<(kAEWaitReply(),
+kAENormalPriority(), 3600*9999)>.  To use different parameters, use
+C<build_event()> with C<send_event()>.
+
+Setting C<$Mac::AppleEvents::Simple::SWITCH = 0> prevents target app from 
+going to the front on C<_send_event()>.
+
 =head1 FUNCTIONS
 
 =over 4
@@ -129,18 +154,20 @@ So you can still mess around with the events if you need to.
 Documented above.  More documentation to come as this thing gets fleshed out
 more.
 
-=item $EVENT = Mac::AppleEvents::Simple->new(CLASSID, EVENTID, APPID, FORMAT, 
-	PARAMETERS ...)
+=item $EVENT = build_event(CLASSID, EVENTID, APPID, FORMAT, PARAMETERS ...)
 
-This is for delayed execution of the event.  Build it with C<new()>, and then 
-send it with C<ae_send()> method.  Not sure how useful this is yet.
+This is for delayed execution of the event, or to build an event that will be 
+sent specially with C<send_event()>.  Build it with C<build_event()>, and then 
+send it with C<send_event()> method.  Not sure how useful this is yet.
 
-=item $EVENT->ae_send();
+=item $EVENT->send_event([REPLY, PRIORITY, TIMEOUT]);
 
-I will probably add ways to change the sending parameters (REPLY, PRIORITY, 
-TIMEOUT) through this method, so if you need to send it a special way, you'll 
-be able to.  You can send an event constructed with C<new()>, or re-send an 
-event constructed and sent with C<do_event()>.
+For sending events differntly than the default, which is C<(kAEWaitReply(),
+kAENormalPriority(), 3600*9999)>, or re-sending an event.  The parameters 
+are sticky for a given event, so:
+
+	$evt->send_event(kAENoReply());
+	$evt->send_event();  # kAENoReply() is still used
 
 =item get_text(STRING);
 
@@ -152,11 +179,21 @@ context.
 
 =head1 EXPORT
 
-Exports functions C<do_event()>, C<get_text()>.
+Exports functions C<do_event()>, C<build_event()>, C<get_text()>.
 
 =head1 HISTORY
 
 =over 4
+
+=item v0.10, June 2, 1998
+
+Changed C<new()> to C<build_event()>, and C<ae_send()> to C<send_event()>.
+
+Made default C<AESend()> parameters overridable via C<send_event()>.
+
+=item v0.03, June 1, 1998
+
+Added C<$SWITCH> global var to override making target app go to front.
 
 =item v0.02, May 19, 1998
 
@@ -176,9 +213,5 @@ Perl itself.  Please see the Perl Artistic License.
 =head1 SEE ALSO
 
 Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat.
-
-=head1 VERSION
-
-Version 0.02 (19 May 1998)
 
 =cut

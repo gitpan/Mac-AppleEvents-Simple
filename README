@@ -1,8 +1,8 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 
-Thursday, May 28, 1998
+Tuesday, June 2, 1998
 
-This is Mac::AppleEvents::Simple 0.02, a simple interface to some
+This is Mac::AppleEvents::Simple 0.10, a simple interface to some
 Mac::AppleEvents functions.
 
 REQUIREMENTS:
@@ -20,15 +20,19 @@ similar program to get at the archive.
 Please let me know how well it does(n't) work, and any changes you'd 
 like to see.
 
+NOTE: some significant changes ot the interface were made; new() and 
+ae_send() were changed to build_event() and send_event().  See the 
+embedded POD for more details.
+
 -----BEGIN PGP SIGNATURE-----
 Version: PGPfreeware 5.0 for non-commercial use <http://www.pgp.com>
 Charset: noconv
 
-iQCVAwUBNW259ChcZja3bnKtAQFmaAP7BIAIG2VU95n7CGKrhxa5hn+7+/4rHEX5
-5BSHsdp78jJSPDx/vF7kLzwLtkAEmhwp52vtS+46ueXbv+FEUyFF1PKhpw8IWKxx
-GOVnWsM8/eB/xotDhoV/Vjy7Jd+w+DtSB8pWCfHJ2IJo1/f+ptKmwTgHkWxs/fUQ
-BKCYCGI6Wow=
-=ivOT
+iQCVAwUBNXSb+yhcZja3bnKtAQHVJQP9FdNBxvwArDNXBx9P6KWYBODRY7QaHuzx
+r+xphdlHQlBE3InaXbUtr/p8E8YuskQqtR6pg2zFpXas8mqlAqs0YyLMhaGKvfeT
+Yf7YijDW9ZBKFpjYlk8r4onbyNlC3LC9vGnA0BQHmYEVzZoDSASfpDkJGON3Kcur
+SiTawiyQKug=
+=e3p/
 -----END PGP SIGNATURE-----
 
 -- 
