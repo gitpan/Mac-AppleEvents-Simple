@@ -11,6 +11,7 @@ use Mac::Apps::Launch 1.80;
 use Mac::Processes 1.04;
 use Mac::Files;
 use Mac::Types;
+use Mac::Errors '$MacError';
 
 #-----------------------------------------------------------------
 
@@ -22,8 +23,8 @@ use Mac::Types;
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.10 2003/05/13 03:54:53 pudge Exp $';
-$VERSION  = '1.04';
+$REVISION = '$Id: Simple.pm,v 1.13 2003/05/23 03:43:04 pudge Exp $';
+$VERSION  = '1.05';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -243,7 +244,7 @@ sub _getdata {
 
 	if (!$ret && !exists $AE_GET{$type} && !exists $MacUnpack{$type} && defined &$CLASSREC) {
 		if ($CLASSREC->($type)) {
-			my $tmp = AECoerceDesc($desc, typeAERecord); # or die "Type [$type]: $^E\n";
+			my $tmp = AECoerceDesc($desc, typeAERecord); # or die "Type [$type]: $MacError\n";
 			if ($tmp) {
 				AEDisposeDesc $desc;
 				$desc = $tmp;
@@ -313,8 +314,8 @@ sub _build_event {
 		$self->{ADDRESS}, kAutoGenerateReturnID, $self->{TRNS_ID},
 		$self->{DESC}, @{$self->{PARAMS}}
 	);
-	$self->{ERROR} = $^E;
-	$self->{ERRNO} = 0+$^E;
+	$self->{ERROR} = $MacError;
+	$self->{ERRNO} = $^E+0;
 }
 
 #-----------------------------------------------------------------
@@ -325,7 +326,7 @@ sub _send_event {
 	if ($self->{ADDTYPE} eq typeApplSignature) {
 		if (! IsRunning($self->{ADDRESS})) {
 			LaunchApps($self->{ADDRESS}, 0) or
-				die "Can't launch '$self->{ADDRESS}': $^E";
+				die "Can't launch '$self->{ADDRESS}': $MacError";
 		}
 		SetFront($self->{ADDRESS}) if $SWITCH;
 	}
@@ -335,8 +336,8 @@ sub _send_event {
 	$self->{T} = defined $_[3] ? $_[3] : $self->{TIMEOUT}  || kNoTimeOut;
 
 	$self->{REP} = AESend(@{$self}{'EVT', 'R', 'P', 'T'});
-	$self->{ERROR} = $^E;
-	$self->{ERRNO} = 0+$^E;
+	$self->{ERROR} = $MacError;
+	$self->{ERRNO} = $^E+0;
 }
 
 #-----------------------------------------------------------------
@@ -362,8 +363,8 @@ sub _event_error {
 		}
 	}
 
-	$self->{ERROR} ||= $^E;
-	$self->{ERRNO} ||= 0+$^E;
+	$self->{ERROR} ||= $MacError;
+	$self->{ERRNO} ||= $^E+0;
 }
 
 #-----------------------------------------------------------------
@@ -375,8 +376,9 @@ sub _warn {
 		if ($self->{ERROR}) {
 			$warn->($self->{ERROR});
 		} elsif ($self->{ERRNO}) {
-			$self->{ERROR} = local $^E = $self->{ERRNO};
-			$warn->("Error $self->{ERRNO}: $^E");
+			local $^E = $self->{ERRNO};
+			$self->{ERROR} = $MacError;
+			$warn->("Error $self->{ERRNO}: $self->{ERROR}");
 		}
 	}
 	$self;
@@ -407,7 +409,7 @@ END {
 		print "Destroying $desc\n" if $DEBUG;
 		if ($desc) {
 			eval { print "\t", AEPrint($DESCS{$desc}), "\n" } if $DEBUG;
-			AEDisposeDesc $DESCS{$desc} or die "Can't dispose $desc: $!";
+			AEDisposeDesc $DESCS{$desc} or die "Can't dispose $desc: $MacError";
 		}
 	}
 }
@@ -419,7 +421,7 @@ BEGIN {
 
 		typeAlias()			=> sub {
 			my $alis = $_[0]->data;
-			return ResolveAlias($alis) or die "Can't resolve alias: $^E";
+			return ResolveAlias($alis) or die "Can't resolve alias: $MacError";
 		},
 
 		typeObjectSpecifier()		=> sub {
@@ -431,7 +433,7 @@ BEGIN {
 			my $list = $_[0];
 			my @data;
 			for (1 .. AECountItems($list)) {
-				my $d = AEGetNthDesc($list, $_) or die "Can't get desc: $^E";
+				my $d = AEGetNthDesc($list, $_) or die "Can't get desc: $MacError";
 				push @data, _getdata($d);
 			}
 			return \@data;
@@ -441,14 +443,14 @@ BEGIN {
 			my $reco = $_[0];
 			my %data;
 			for (1 .. AECountItems($reco)) {
-				my @d = AEGetNthDesc($reco, $_) or die "Can't get desc: $^E";
+				my @d = AEGetNthDesc($reco, $_) or die "Can't get desc: $MacError";
 				$data{$d[1]} = _getdata($d[0]);
 			}
 			return \%data;
 		},
 
 		typeProcessSerialNumber() 	=> sub {
-			my $psn = join '', unpack 'll', $_[0]->data->get;
+			my $psn = join '', unpack 'LL', $_[0]->data->get;
 			$psn =~ s/^0+//;
 			$psn;
 		},
@@ -469,9 +471,10 @@ BEGIN {
 	);
 
 	%AE_GET = (%AE_GET,
-		typeUnicodeText()	=> $AE_GET{STXT},
-		typeIntlText()		=> $AE_GET{STXT},
-		typeAEText()		=> $AE_GET{STXT},
+		typeUnicodeText()	=> $AE_GET{typeStyledText()},
+		typeIntlText()		=> $AE_GET{typeStyledText()},
+		typeAEText()		=> $AE_GET{typeStyledText()},
+		'ldt '			=> $AE_GET{typeProcessSerialNumber()}, # typeLongDateTime
 #		  UREC => sub {
 #			  $AE_GET{typeAERecord()}->(AECoerceDesc(shift, typeAERecord));
 #		  },
@@ -480,7 +483,7 @@ BEGIN {
 }
 
 sub _get_coerce {
-	my $data = AECoerceDesc(@_) or die $^E;
+	my $data = AECoerceDesc(@_) or die $^E+0;
 	return $data->get;
 }
 
@@ -503,11 +506,12 @@ Mac::AppleEvents::Simple - Simple access to Mac::AppleEvents
 	do_event(qw/aevt odoc MACS/, "'----':alis(\@\@)", $alias);
 
 	# [...]
+	use Mac::Errors '$MacError';
 	use Mac::AppleEvents;  # for kAENoReply
 	$evt = build_event(qw/aevt odoc MACS/, "'----':alis(\@\@)", $alias);
-	die "There was a problem: $^E" if $^E;
+	die "There was a problem: $MacError" if $^E;
 	$evt->send_event(kAENoReply);
-	die "There was a problem: $^E" if $^E;
+	die "There was a problem: $MacError" if $^E;
 
 
 =head1 DESCRIPTION
@@ -537,8 +541,8 @@ previously done as:
 	use Mac::Files;
 	$alias = NewAliasMinimal(scalar MacPerl::Volumes);
 	$evt = AEBuildAppleEvent(qw/aevt odoc sign MACS 0 0/,
-		"'----':alis(\@\@)", $alias) or die $^E;
-	$rep = AESend($evt, kAEWaitReply) or die $^E;
+		"'----':alis(\@\@)", $alias) or die $MacError;
+	$rep = AESend($evt, kAEWaitReply) or die $MacError;
 	AEDisposeDesc($rep);
 	AEDisposeDesc($evt);
 
@@ -578,7 +582,7 @@ You may decide to roll your own error catching system, too.  In this
 example, the error is returned in the direct object parameter.
 
 	my $event = do_event( ... );
-	die $^E if $^E;  # catch execution errors
+	die $MacError if $^E;  # catch execution errors
 	my_warn_for_this_app($event);  # catch AE reply errors
 
 	sub my_warn_for_this_app {
@@ -757,4 +761,4 @@ Interapplication Communication.
 
 =head1 VERSION
 
-v1.04, Monday, May 12, 2003
+v1.05, Thursday, May 22, 2003

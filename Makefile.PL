@@ -7,6 +7,7 @@ WriteMakefile(
     		'Mac::Apps::Launch'  => 1.81,
     		'Mac::AppleEvents'   => 1.25,
     		'Mac::Processes'     => 1.04,
+    		'Mac::Errors'        => 0.91,
     		'Test::More'         => 0,
 	},
 	'clean'	=> {
