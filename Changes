@@ -1,3 +1,8 @@
+* v1.13, Tuesday, May 18, 2004
+
+   Handle launching and $SWITCHing of applications by bundle ID
+   (previously only worked for app signatures).
+
 * v1.12, Monday, May 10, 2004
 
    Eliminate a bunch of memory leaks, where we didn't dipose of AEDescs

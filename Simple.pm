@@ -24,8 +24,8 @@ use Time::Epoch 'epoch2perl';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.20 2004/05/11 06:00:54 pudge Exp $';
-$VERSION  = '1.12';
+$REVISION = '$Id: Simple.pm,v 1.21 2004/05/18 17:41:17 pudge Exp $';
+$VERSION  = '1.13';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -356,11 +356,19 @@ sub _send_event {
 	my $self = $_[0];
 
 	if ($self->{ADDTYPE} eq typeApplSignature) {
-		if (! IsRunning($self->{ADDRESS})) {
+		if (! _IsRunning($self->{ADDRESS})) {
 			LaunchApps($self->{ADDRESS}, 0) or
 				die "Can't launch '$self->{ADDRESS}': $MacError";
 		}
-		SetFront($self->{ADDRESS}) if $SWITCH;
+		_SetFront($self->{ADDRESS}) if $SWITCH;
+
+	} elsif ($self->{ADDTYPE} eq typeApplicationBundleID) {
+		my $path = LSFindApplicationForInfo(undef, $self->{ADDRESS});
+		if (! _IsRunning($path, 1)) {
+			LaunchSpecs($path, 0) or
+				die "Can't launch '$self->{ADDRESS}': $MacError";
+		}
+		_SetFront($path, 1) if $SWITCH;
 	}
 
 	$self->{R} = defined $_[1] ? $_[1] : $self->{GETREPLY} || kAEWaitReply;
@@ -535,6 +543,37 @@ sub _get_coerce {
 }
 
 #=============================================================================#
+# copied from Mac::Apps::Launch, add stuff for bundle IDs etc.
+sub _IsRunning {
+	my($address, $is_path) = @_;
+	while (my($k, $v) = each %Process) {
+		if ($is_path) {
+			return 1 if $v->processAppSpec =~ /^\Q$address\E/;
+		} else {
+			return 1 if $v->processSignature eq $address;
+		}
+	}
+	return;
+}
+
+sub _SetFront {
+	my($address, $is_path) = @_;
+	my $method = $is_path ? 'processAppSpec' : 'processSignature';
+	my $found = 0;
+	for my $psn (keys %Process) {
+		if ($is_path) {
+			$found = 1 if $Process{$psn}->processAppSpec =~ /^\Q$address\E/;
+		} else {
+			$found = 1 if $Process{$psn}->processSignature eq $address;
+		}
+		if ($found) {
+			SetFrontProcess($psn);
+			return 1;
+		}
+	}
+	return;
+}
+
 
 1;
 
@@ -599,6 +638,11 @@ results of C<AEBuildAppleEvent> and C<AESend> would be in C<$event-E<gt>{EVENT}>
 C<$event-E<gt>{REPLY}>, but this was wasting way too much memory, as some of
 these things got big; you can call C<AEPrint($event-E<gt>{REP})> yourself).
 
+Also, the Mac::AppleEvents::Simple method will launch the application for
+you, whereas the Mac::AppleEvents method requires the program to be running
+already (or launched via Mac::Processes or Mac::Apps::Launch).  Launching
+works only when the target is an app signature or bundle ID.
+
 The raw AEDesc forms are in C<$event-E<gt>{EVT}> and C<$event-E<gt>{REP}>.
 So if I also C<use>'d the Mac::AppleEvents module (or got the symbols via
 C<use Mac::AppleEvents::Simple ':all'>), I could extract the direct
@@ -614,7 +658,8 @@ C<kAENormalPriority>, C<kNoTimeout>).  To use different parameters, use
 C<build_event> with C<send_event>.
 
 Setting C<$Mac::AppleEvents::Simple::SWITCH = 1> forces the target app to
-go to the front on sending an event to it.
+go to the front on sending an event to it.  This works only when
+the target is an app signature or bundle ID.
 
 Sending an event with C<send_event> or C<do_event> will check for errors
 automatically, and if there is an error and C<$Mac::AppleEvents::Simple::WARN>
