@@ -1,0 +1,36 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+
+Thursday, May 28, 1998
+
+This is Mac::AppleEvents::Simple 0.02, a simple interface to some
+Mac::AppleEvents functions.
+
+REQUIREMENTS:
+*MacPerl 5.2.0r4+ (might work with earlier versions, untested)
+
+This archive can always be obtained from:
+
+    http://pudge.net/macperl/
+    http://perl.com/CPAN/authors/id/CNANDOR/
+    http://perl.com/CPAN/modules/by-module/Mac/
+
+The file is a tarred, gzipped file.  Use Stuffit Expander or a
+similar program to get at the archive.
+
+Please let me know how well it does(n't) work, and any changes you'd 
+like to see.
+
+-----BEGIN PGP SIGNATURE-----
+Version: PGPfreeware 5.0 for non-commercial use <http://www.pgp.com>
+Charset: noconv
+
+iQCVAwUBNW259ChcZja3bnKtAQFmaAP7BIAIG2VU95n7CGKrhxa5hn+7+/4rHEX5
+5BSHsdp78jJSPDx/vF7kLzwLtkAEmhwp52vtS+46ueXbv+FEUyFF1PKhpw8IWKxx
+GOVnWsM8/eB/xotDhoV/Vjy7Jd+w+DtSB8pWCfHJ2IJo1/f+ptKmwTgHkWxs/fUQ
+BKCYCGI6Wow=
+=ivOT
+-----END PGP SIGNATURE-----
+
+-- 
+Chris Nandor          mailto:pudge@pobox.com         http://pudge.net/
+%PGPKey = ('B76E72AD', [1024, '0824090B CE73CA10  1FF77F13 8180B6B6'])
