@@ -1,3 +1,7 @@
+* v1.16, Saturday, February 19, 2005
+
+   Switch during launch if we are launching anyway.  More efficient.
+
 * v1.15, Monday, December 7, 2004
 
    warn, don't die, if app path cannot be found, because we might

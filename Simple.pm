@@ -11,7 +11,7 @@ use Mac::Apps::Launch 1.90;
 use Mac::Processes 1.04;
 use Mac::Files;
 use Mac::Types;
-use Mac::Errors '$MacError';
+use Mac::Errors qw(%MacErrors $MacError);
 use Time::Epoch 'epoch2perl';
 
 #-----------------------------------------------------------------
@@ -24,8 +24,8 @@ use Time::Epoch 'epoch2perl';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.23 2004/12/07 06:16:16 pudge Exp $';
-$VERSION  = '1.15';
+$REVISION = '$Id: Simple.pm,v 1.24 2005/02/20 06:41:44 pudge Exp $';
+$VERSION  = '1.16';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -353,22 +353,25 @@ sub _build_event {
 #-----------------------------------------------------------------
 
 sub _send_event {
-	my $self = $_[0];
+	my $self   = $_[0];
+	my $launch = $_[4];
 
 	if ($self->{ADDTYPE} eq typeApplSignature) {
-		if (! IsRunning($self->{ADDRESS})) {
-			LaunchApps($self->{ADDRESS}, 0) or
+		if (! IsRunning($self->{ADDRESS})) { # $launch
+			LaunchApps($self->{ADDRESS}, $SWITCH) or
 				warn "Can't launch '$self->{ADDRESS}': $MacError";
+		} elsif ($SWITCH) {
+			SetFront($self->{ADDRESS});
 		}
-		SetFront($self->{ADDRESS}) if $SWITCH;
 
 	} elsif ($self->{ADDTYPE} eq typeApplicationBundleID) {
-		my $path = LSFindApplicationForInfo('', $self->{ADDRESS});
-		if (! IsRunning($path, 1)) {
-			LaunchSpecs($path, 0) or
+		my $path = $self->{PATH} || LSFindApplicationForInfo('', $self->{ADDRESS});
+		if (! IsRunning($path, 1)) { # $launch
+			LaunchSpecs($path, $SWITCH) or
 				warn "Can't launch '$self->{ADDRESS}': $MacError";
+		} elsif ($SWITCH) {
+			SetFront($path, 1);
 		}
-		SetFront($path, 1) if $SWITCH;
 	}
 
 	$self->{R} = defined $_[1] ? $_[1] : $self->{GETREPLY} || kAEWaitReply;
@@ -378,6 +381,11 @@ sub _send_event {
 	$self->{REP} = AESend(@{$self}{'EVT', 'R', 'P', 'T'});
 	$self->{ERRNO} = $^E+0;
 	$self->{ERROR} = $MacError;
+
+#	if (!$launch && $self->{ERRNO} == -600) { #$MacErrors{connectionInvalid}->number) {
+#		$self->_send_event(@_[1..3], 1);
+#	}
+
 	return $self->{ERRNO};
 }
 
@@ -820,7 +828,7 @@ C<all> export tag.
 
 Chris Nandor E<lt>pudge@pobox.comE<gt>, http://pudge.net/
 
-Copyright (c) 1998-2004 Chris Nandor.  All rights reserved.  This program
+Copyright (c) 1998-2005 Chris Nandor.  All rights reserved.  This program
 is free software; you can redistribute it and/or modify it under the same
 terms as Perl itself.
 
