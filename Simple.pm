@@ -1,133 +1,164 @@
 package Mac::AppleEvents::Simple;
 require 5.004;
+use strict;
+use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH
+	%AE_GET %DESCS $DESCCOUNT $WARN $DEBUG $REVISION);
+
 use Carp;
+use Exporter;
 use Mac::AppleEvents 1.22;
-use Mac::Processes;
 use Mac::Apps::Launch 1.70;
+use Mac::Processes 1.01;
 use Mac::Files;
 use Mac::Types;
-use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH
-    %AE_GET %DESCS $DESCCOUNT $WARN $DEBUG);
-use strict;
-use Exporter;
-use Carp;
 
 #-----------------------------------------------------------------
 
 @ISA = qw(Exporter Mac::AppleEvents);
-@EXPORT = qw(do_event build_event pack_ppc pack_eppc pack_psn);
-@EXPORT_OK = @Mac::AppleEvents::EXPORT;
+@EXPORT = qw(
+	do_event build_event handle_event
+	pack_ppc pack_eppc pack_psn
+);
+@EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.81';
-$DEBUG  ||= 0;
+
+$REVISION = '$Id: Simple.pm,v 1.4 2000/09/15 00:21:12 pudge Exp $';
+$VERSION  = '1.00';
+$DEBUG	||= 0;
 $SWITCH ||= 0;
-$WARN   ||= 0;
+$WARN	||= 0;
+
+sub cluck;
+*cluck = *Carp::cluck{CODE} || *carp{CODE};
 
 #-----------------------------------------------------------------
 # Main public methods and functions
 #-----------------------------------------------------------------
 
 sub do_event {
-    my $self = bless _construct(@_), __PACKAGE__;
-    $self->_build_event and return $self->_warn;
-    $self->_send_event and return $self->_warn;
-    $self->_sending and return $self->_warn;
-    $self;
+	my $self = bless _construct(@_), __PACKAGE__;
+	$self->_build_event and return $self->_warn;
+	$self->_send_event and return $self->_warn;
+	$self->_sending and return $self->_warn;
+	$self;
 }
 
 #-----------------------------------------------------------------
 
 sub build_event {
-    my $self = bless _construct(@_), __PACKAGE__;
-    $self->_build_event and return $self->_warn;
-    $self->_print_desc('EVT') and return $self->_warn;
-    $self;
+	my $self = bless _construct(@_), __PACKAGE__;
+	$self->_build_event and return $self->_warn;
+	$self->_print_desc('EVT') and return $self->_warn;
+	$self;
+}
+
+#-----------------------------------------------------------------
+
+sub handle_event {
+	my($class, $event, $code, $sys) = @_;
+	my $hash = $sys ? \%SysAppleEvent : \%AppleEvent;
+	my $handler = bless [$hash, $class, $event],
+		__PACKAGE__ . '::Handler';
+
+	$hash->{$class, $event} = sub {
+		my($evt, $rep, $key) = @_;
+		# make 'em backward!
+		my $obj = bless {
+			REP => $evt,
+			EVT => $rep,
+			HANDLER => $handler
+		}, __PACKAGE__;
+		$code->($obj, split /$;/, $key);
+		0;
+	};
+
+	return;
 }
 
 #-----------------------------------------------------------------
 
 sub send_event {
-    my $self = shift;
-    $self->_send_event(@_) and return $self->_warn;
-    $self->_sending and return $self->_warn;
-    $self;
+	my $self = shift;
+	$self->_send_event(@_) and return $self->_warn;
+	$self->_sending and return $self->_warn;
+	$self;
 }
 
 #-----------------------------------------------------------------
 
 sub type {
-    my($self, $key) = @_;
-    my($d, $desc);
-    $d = ref $self eq __PACKAGE__ ? $self->{REP} : $self;
-    return unless ref $d eq 'AEDesc';
-    return unless
-        defined($desc = AEGetParamDesc($d, $key || keyDirectObject));
-    return $desc->type;
+	my($self, $key) = @_;
+	my($d, $desc);
+	$d = ref $self eq __PACKAGE__ ? $self->{REP} : $self;
+	return unless ref $d eq 'AEDesc';
+	return unless
+		defined($desc = AEGetParamDesc($d, $key || keyDirectObject));
+	return $desc->type;
 }
 
 #-----------------------------------------------------------------
 
 sub data {
-    my($self, $key) = @_;
-    my($d, $desc, $num, @ret);
+	my($self, $key) = @_;
+	my($d, $desc, $num, @ret);
 
-    $d = ref $self eq __PACKAGE__ ? $self->{REP} : $self;
-    return unless ref $d eq 'AEDesc';
-    return unless
-        defined($desc = AEGetParamDesc($d, $key || keyDirectObject));
+	$d = ref $self eq __PACKAGE__ ? $self->{REP} : $self;
+	return unless ref $d eq 'AEDesc';
+	return unless
+		defined($desc = AEGetParamDesc($d, $key || keyDirectObject));
 
-    # special-case typeAERecord here, too?
-    if ($num = AECountItems($desc)) {
-        for (1 .. $num) {
-            my $d = AEGetNthDesc($desc, $_);
-            push @ret, $d;
-        }
-        return wantarray ? @ret : $ret[0];
-    } else {
-        return $desc;
-    }
+	# special-case typeAERecord here, too?
+	if ($num = AECountItems($desc)) {
+		for (1 .. $num) {
+			my $d = AEGetNthDesc($desc, $_);
+			push @ret, $d;
+		}
+		return wantarray ? @ret : $ret[0];
+	} else {
+		return $desc;
+	}
 }
 
 #-----------------------------------------------------------------
 
 sub get {
-    my($self, $key) = @_;
-    my($d, $desc, $num);
+	my($self, $key) = @_;
+	my($d, $desc, $num);
 
-    $d = ref $self eq __PACKAGE__ ? $self->{REP} : $self;
-    return unless ref $d eq 'AEDesc';
-    return unless
-        defined($desc = AEGetParamDesc($d, $key || keyDirectObject));
+	$d = ref $self eq __PACKAGE__ ? $self->{REP} : $self;
+	return unless ref $d eq 'AEDesc';
+	return unless
+		defined($desc = AEGetParamDesc($d, $key || keyDirectObject));
 
-    if ($num = AECountItems($desc)) {
-        if ($desc->type eq typeAEList) {
-            my @ret;
-            for (1..$num) {
-                push @ret, _getdata(AEGetNthDesc($desc, $_));
-            }
-            # if scalar context, return ref instead?
-            return wantarray ? @ret : $ret[0];
+	if ($num = AECountItems($desc)) {
+		if ($desc->type eq typeAEList) {
+			my @ret;
+			for (1..$num) {
+				push @ret, _getdata(AEGetNthDesc($desc, $_));
+			}
+			# if scalar context, return ref instead?
+			return wantarray ? @ret : $ret[0];
 
-        } elsif ($desc->type eq typeAERecord) {
-            my %ret;
-            for (1..$num) {
-                my @d = AEGetNthDesc($desc, $_);
-                $ret{$d[1]} = _getdata($d[0]);
-            }
-            # if scalar context, return ref instead?
-            return %ret;
-        }
+		} elsif ($desc->type eq typeAERecord) {
+			my %ret;
+			for (1..$num) {
+				my @d = AEGetNthDesc($desc, $_);
+				$ret{$d[1]} = _getdata($d[0]);
+			}
+			# if scalar context, return ref instead?
+			return %ret;
+		}
 
-    } else {
-        return _getdata($desc);
-    }
+	} else {
+		return _getdata($desc);
+	}
 }
 
 #-----------------------------------------------------------------
 
 sub pack_psn {
-    my $psn = shift;
-    return pack 'll', 0, $psn;
+	my $psn = shift;
+	return pack 'll', 0, $psn;
 }
 
 #-----------------------------------------------------------------
@@ -136,57 +167,57 @@ sub pack_ppc  { _pack_ppc('ppc',  @_) }
 sub pack_eppc { _pack_ppc('eppc', @_) }
 
 sub _pack_ppc {
-    my($type, $id, $name, $server, $zone) = @_;
-    my %TargetID;
+	my($type, $id, $name, $server, $zone) = @_;
+	my %TargetID;
 
-    $TargetID{sess} = ['l', 0];             # long sessionID
-    $TargetID{name} = ['sca33sca33',        # PPCPortRec name
-        0,                                      # ScriptCode nameScript
-        length($name), $name,                   # Str32Field name
-        2,                                      # PPCPortKinds ppcByString
-        length($id . 'ep01'), $id . 'ep01',     # Str32 portTypeStr
-        # why ep01?  dick karpinski suggests it might be
-        # "Ethernet port 01", so maybe we need to find out
-        # the port automatically ... ick.
-    ];
+	$TargetID{sess} = ['l', 0];			# long sessionID
+	$TargetID{name} = ['sca33sca33',		# PPCPortRec name
+		0,						# ScriptCode nameScript
+		length($name), $name,				# Str32Field name
+		2,						# PPCPortKinds ppcByString
+		length($id . 'ep01'), $id . 'ep01',		# Str32 portTypeStr
+		# why ep01? dick karpinski suggests it might be
+		# "Ethernet port 01", so maybe we need to find out
+		# the port automatically ... ick.
+	];
 
-    if ($type eq 'ppc') {
-        my $atype = 'PPCToolbox';
-        $zone ||= '*';
-        $TargetID{loca} = ['sca33ca33ca33', # LocationNameRec location
-            1,                              # PPCLocationKind ppcNBPLocation
-                                            # EntityName
-            length($server), $server,           # Str32Field objStr
-            length($atype), $atype,             # Str32Field typeStr
-            length($zone), $zone,               # Str32Field zoneStr
-        ];
-    } elsif ($type eq 'eppc') {
-        $TargetID{loca} = ['ssssa*',        # LocationNameRec location
-            3,                              # PPCLocationKind 
-                                            #     ppcXTIAddrLocation
-                                            # PPCAddrRec xtiType
-            0,                                  # UInt8 Reserved (0)
-            2 + length($server),                # UInt8 xtiAddrLen
-                                                # PPCXTIAddress xtiAddr
-            42,                                     # PPCXTIAddressType
-                                                    #     kDNSAddrType
-            $server                                 # UInt8 fAddress[96]
-        ];
-    } else {
-        carp "Type $type not recognized\n";
-    }
+	if ($type eq 'ppc') {
+		my $atype = 'PPCToolbox';
+		$zone ||= '*';
+		$TargetID{loca} = ['sca33ca33ca33',	# LocationNameRec location
+			1,				# PPCLocationKind ppcNBPLocation
+							# EntityName
+			length($server), $server,		# Str32Field objStr
+			length($atype), $atype,			# Str32Field typeStr
+			length($zone), $zone,			# Str32Field zoneStr
+		];
+	} elsif ($type eq 'eppc') {
+		$TargetID{loca} = ['ssssa*',		# LocationNameRec location
+			3,				# PPCLocationKind 
+							#	  ppcXTIAddrLocation
+							# PPCAddrRec xtiType
+			0,					# UInt8 Reserved (0)
+			2 + length($server),			# UInt8 xtiAddrLen
+								# PPCXTIAddress xtiAddr
+			42,						# PPCXTIAddressType
+									#	  kDNSAddrType
+			$server						# UInt8 fAddress[96]
+		];
+	} else {
+		carp "Type $type not recognized\n";
+	}
 
-    my($format, @args, $targ);
-    for (qw[sess name loca]) {
-        my @foo = @{$TargetID{$_}};
-        $format .= shift @foo;
-        push @args, @foo;
-    }
-    $targ  = pack $format, @args;
+	my($format, @args, $targ);
+	for (qw[sess name loca]) {
+		my @foo = @{$TargetID{$_}};
+		$format .= shift @foo;
+		push @args, @foo;
+	}
+	$targ  = pack $format, @args;
 
-    printf("> %s\n< %s\n\n", $targ, join("|", unpack $format, $targ))
-        if $DEBUG > 1;
-    return $targ;
+	printf("> %s\n< %s\n\n", $targ, join("|", unpack $format, $targ))
+		if $DEBUG > 1;
+	return $targ;
 }
 
 #-----------------------------------------------------------------
@@ -194,218 +225,228 @@ sub _pack_ppc {
 #-----------------------------------------------------------------
 
 sub _getdata {
-    my $desc = shift;
-    my $type = $desc->type;
+	my $desc = shift;
+	my $type = $desc->type;
 
-    my($ret, $keep) = exists($AE_GET{$type})
-        ? &{$AE_GET{$type}}($desc)
-        : $desc->get;
+	my($ret, $keep) = exists($AE_GET{$type})
+		? $AE_GET{$type}->($desc)
+		: $desc->get;
 
-    AEDisposeDesc $desc unless $keep;
-    return $ret;
+	AEDisposeDesc $desc unless $keep;
+	return $ret;
 }
 
 #-----------------------------------------------------------------
 
 sub _sending {
-    my $self = shift;
-    $self->_print_desc('EVT');
-    $self->_print_desc('REP');
-    $self->_event_error;
+	my $self = shift;
+	$self->_print_desc('EVT');
+	$self->_print_desc('REP');
+	$self->_event_error;
 }
 
 #-----------------------------------------------------------------
 
 sub _construct {
-    my $self = {};
-    $self->{CLASS} = shift or croak 'Not enough parameters in AE build';
-    $self->{EVNT} = shift or croak 'Not enough parameters in AE build';
-    $self->{APP} = shift or croak 'Not enough parameters in AE build';
+	my $self = {};
+	$self->{CLASS} = shift or croak 'Not enough parameters in AE build';
+	$self->{EVNT} = shift or croak 'Not enough parameters in AE build';
+	$self->{APP} = shift or croak 'Not enough parameters in AE build';
 
-    if (ref $self->{APP} eq 'HASH') {
-        for (keys %{$self->{APP}}) {
-            $self->{ADDTYPE} = $_;
-            $self->{ADDRESS} = $self->{APP}{$_};
-            next;
-        }
-    } else {
-        $self->{ADDTYPE} = typeApplSignature;
-        $self->{ADDRESS} = $self->{APP};
-    }
+	if (ref $self->{APP} eq 'HASH') {
+		for (keys %{$self->{APP}}) {
+			$self->{ADDTYPE} = $_;
+			$self->{ADDRESS} = $self->{APP}{$_};
+			next;
+		}
+	} else {
+		$self->{ADDTYPE} = typeApplSignature;
+		$self->{ADDRESS} = $self->{APP};
+	}
 
-    $self->{DESC} = shift || '';
-    $self->{PARAMS} = [@_];
-    $self;
+	$self->{DESC} = shift || '';
+	$self->{PARAMS} = [@_];
+	$self;
 }
 
 #-----------------------------------------------------------------
 
 sub _print_desc {
-    my $self = shift;
-    my %what = (EVT => 'EVENT', REP => 'REPLY');
-    $self->{$what{$_[0]}} = AEPrint $self->{$_[0]};
+	my $self = shift;
+	my %what = (EVT => 'EVENT', REP => 'REPLY');
+	$self->{$what{$_[0]}} = AEPrint $self->{$_[0]};
 }
 
 #-----------------------------------------------------------------
 
 sub _build_event {
-    my $self = shift;
-    $self->{TRNS_ID} ||= kAnyTransactionID;
-    $self->{EVT} = AEBuildAppleEvent(
-        $self->{CLASS}, $self->{EVNT}, $self->{ADDTYPE},
-        $self->{ADDRESS}, kAutoGenerateReturnID, $self->{TRNS_ID},
-        $self->{DESC}, @{$self->{PARAMS}}
-    );
-    $self->{ERROR} = $^E;
-    $self->{ERRNO} = 0+$^E;
+	my $self = shift;
+	$self->{TRNS_ID} ||= kAnyTransactionID;
+	$self->{EVT} = AEBuildAppleEvent(
+		$self->{CLASS}, $self->{EVNT}, $self->{ADDTYPE},
+		$self->{ADDRESS}, kAutoGenerateReturnID, $self->{TRNS_ID},
+		$self->{DESC}, @{$self->{PARAMS}}
+	);
+	$self->{ERROR} = $^E;
+	$self->{ERRNO} = 0+$^E;
 }
 
 #-----------------------------------------------------------------
 
 sub _send_event {
-    my $self = $_[0];
+	my $self = $_[0];
 
-    if ($self->{ADDTYPE} eq typeApplSignature) {
-        if (! IsRunning($self->{ADDRESS})) {
-            LaunchApps($self->{ADDRESS}, 0) or die $^E;
-        }
-        SetFront($self->{ADDRESS}) if $SWITCH;
-    }
+	if ($self->{ADDTYPE} eq typeApplSignature) {
+		if (! IsRunning($self->{ADDRESS})) {
+			LaunchApps($self->{ADDRESS}, 0) or
+				die "Can't launch '$self->{ADDRESS}': $^E";
+		}
+		SetFront($self->{ADDRESS}) if $SWITCH;
+	}
 
-    $self->{R} = defined $_[1] ? $_[1] : $self->{GETREPLY} || kAEWaitReply;
-    $self->{P} = defined $_[2] ? $_[2] : $self->{PRIORITY} || kAENormalPriority;
-    $self->{T} = defined $_[3] ? $_[3] : $self->{TIMEOUT}  || kNoTimeOut;
+	$self->{R} = defined $_[1] ? $_[1] : $self->{GETREPLY} || kAEWaitReply;
+	$self->{P} = defined $_[2] ? $_[2] : $self->{PRIORITY} || kAENormalPriority;
+	$self->{T} = defined $_[3] ? $_[3] : $self->{TIMEOUT}  || kNoTimeOut;
 
-    $self->{REP} = AESend(@{$self}{'EVT', 'R', 'P', 'T'});
-    $self->{ERROR} = $^E;
-    $self->{ERRNO} = 0+$^E;
+	$self->{REP} = AESend(@{$self}{'EVT', 'R', 'P', 'T'});
+	$self->{ERROR} = $^E;
+	$self->{ERRNO} = 0+$^E;
 }
 
 #-----------------------------------------------------------------
 
 sub _event_error {
-    my($self) = @_;
-    my($event, $error);
+	my($self) = @_;
+	my($event, $error);
 
-    delete $self->{ERRNO};
-    $event = $self->{REP};
-    return unless $event;
+	delete $self->{ERRNO};
+	$event = $self->{REP};
+	return unless $event;
 
-    {
-        local $^E;
-        if (my $errn = AEGetParamDesc($event, keyErrorNumber)) {
-            $self->{ERRNO} = $errn->get;
-            AEDisposeDesc($errn);
-        }
+	{
+		local $^E;
+		if (my $errn = AEGetParamDesc($event, keyErrorNumber)) {
+			$self->{ERRNO} = $errn->get;
+			AEDisposeDesc($errn);
+		}
 
-        if (my $errs = AEGetParamDesc($event, keyErrorString)) {
-            $self->{ERROR} = $errs->get;
-            AEDisposeDesc($errs);
-        }
-    }
+		if (my $errs = AEGetParamDesc($event, keyErrorString)) {
+			$self->{ERROR} = $errs->get;
+			AEDisposeDesc($errs);
+		}
+	}
 
-    $self->{ERROR} ||= $^E;
-    $self->{ERRNO} ||= 0+$^E;
+	$self->{ERROR} ||= $^E;
+	$self->{ERRNO} ||= 0+$^E;
 }
 
 #-----------------------------------------------------------------
 
 sub _warn {
-    my $self = $_[0];
-    if ($WARN) {
-        if ($self->{ERROR}) {
-            carp $self->{ERROR};
-        } elsif ($self->{ERRNO}) {
-            $self->{ERROR} = local $^E = $self->{ERRNO};
-            carp "Error $self->{ERRNO}: $^E";
-        }
-    }
-    $self;
+	my $self = $_[0];
+	if ($WARN) {
+		my $warn = $WARN > 1 ? \&cluck : \&carp;
+		if ($self->{ERROR}) {
+			$warn->($self->{ERROR});
+		} elsif ($self->{ERRNO}) {
+			$self->{ERROR} = local $^E = $self->{ERRNO};
+			$warn->("Error $self->{ERRNO}: $^E");
+		}
+	}
+	$self;
+}
+
+#-----------------------------------------------------------------
+
+sub Mac::AppleEvents::Simple::Handler::DESTROY {
+	my $self = shift;
+	delete $self->[0]{$self->[1], $self->[2]};
 }
 
 #-----------------------------------------------------------------
 
 DESTROY {
-    my $self = shift;
-    local $^E;  # save $^E
-    AEDisposeDesc $self->{EVT} if $self->{EVT};
-    AEDisposeDesc $self->{REP} if $self->{REP};
+	my $self = shift;
+	local $^E;	# save $^E
+	unless ($self->{HANDLER}) {
+		AEDisposeDesc $self->{EVT} if $self->{EVT};
+		AEDisposeDesc $self->{REP} if $self->{REP};
+	}
 }
 
 #-----------------------------------------------------------------
 
 END {
-    foreach my $desc (keys %DESCS) {
-        print "Destroying $desc\n" if $DEBUG;
-        if ($desc) {
-            eval { print "\t", AEPrint($DESCS{$desc}), "\n" } if $DEBUG;
-            AEDisposeDesc $DESCS{$desc} or die "Can't dispose $desc: $!";
-        }
-    }
+	foreach my $desc (keys %DESCS) {
+		print "Destroying $desc\n" if $DEBUG;
+		if ($desc) {
+			eval { print "\t", AEPrint($DESCS{$desc}), "\n" } if $DEBUG;
+			AEDisposeDesc $DESCS{$desc} or die "Can't dispose $desc: $!";
+		}
+	}
 }
 
 #-----------------------------------------------------------------
 
 BEGIN {
-    %AE_GET = (
+	%AE_GET = (
 
-        typeAlias()             => sub {
-            my $alis = $_[0]->data;
-            return ResolveAlias($alis) or die "Can't resolve alias: $^E";
-        },
+		typeAlias()			=> sub {
+			my $alis = $_[0]->data;
+			return ResolveAlias($alis) or die "Can't resolve alias: $^E";
+		},
 
-        typeObjectSpecifier()   => sub {
-            $DESCS{ $_[0] } = $_[0];
-            return($_[0], 1);
-        },
+		typeObjectSpecifier()		=> sub {
+			$DESCS{ $_[0] } = $_[0];
+			return($_[0], 1);
+		},
 
-        typeAEList()            => sub {
-            my $list = $_[0];
-            my @data;
-            for (1 .. AECountItems($list)) {
-                my $d = AEGetNthDesc($list, $_) or die "Can't get desc: $^E";
-                push @data, _getdata($d);
-            }
-            return \@data;
-        },
+		typeAEList()			=> sub {
+			my $list = $_[0];
+			my @data;
+			for (1 .. AECountItems($list)) {
+				my $d = AEGetNthDesc($list, $_) or die "Can't get desc: $^E";
+				push @data, _getdata($d);
+			}
+			return \@data;
+		},
 
-        typeAERecord()          => sub {
-            my $reco = $_[0];
-            my %data;
-            for (1 .. AECountItems($reco)) {
-                my @d = AEGetNthDesc($reco, $_) or die "Can't get desc: $^E";
-                $data{$d[1]} = _getdata($d[0]);
-            }
-            return \%data;
-        },
+		typeAERecord()			=> sub {
+			my $reco = $_[0];
+			my %data;
+			for (1 .. AECountItems($reco)) {
+				my @d = AEGetNthDesc($reco, $_) or die "Can't get desc: $^E";
+				$data{$d[1]} = _getdata($d[0]);
+			}
+			return \%data;
+		},
 
-        typeProcessSerialNumber() => sub {
-            my $psn = join '', unpack 'll', $_[0]->data->get;
-            $psn =~ s/^0+//;
-            $psn;
-        },
+		typeProcessSerialNumber() 	=> sub {
+			my $psn = join '', unpack 'll', $_[0]->data->get;
+			$psn =~ s/^0+//;
+			$psn;
+		},
 
-        STXT => sub { _get_coerce($_[0], typeChar) },
+		STXT => sub { _get_coerce($_[0], typeChar) },
 
-        QDpt                    => sub {
-            my $string = $_[0]->data->get;
-            return [reverse unpack "s4s4", $string]
-        },
+		QDpt => sub {
+			my $string = $_[0]->data->get;
+			return [reverse unpack "s4s4", $string]
+		},
 
-        qdrt                    => sub {
-            return [ ($_[0]->get) ]; # [1,0,3,2]
-        },
+		qdrt => sub {
+			return [ ($_[0]->get) ]; # [1,0,3,2]
+		},
 
+	);
 
-    );
-
-    %AE_GET = (%AE_GET,
-        itxt => $AE_GET{STXT},
-        tTXT => $AE_GET{STXT},
-#         UREC => sub {
-#             $AE_GET{typeAERecord()}->(AECoerceDesc(shift, typeAERecord));
-#         },
-    );
+	%AE_GET = (%AE_GET,
+		itxt => $AE_GET{STXT},
+		tTXT => $AE_GET{STXT},
+#		  UREC => sub {
+#			  $AE_GET{typeAERecord()}->(AECoerceDesc(shift, typeAERecord));
+#		  },
+	);
 
 }
 
@@ -423,37 +464,42 @@ Mac::AppleEvents::Simple - MacPerl module to do Apple Events more simply
 
 =head1 SYNOPSIS
 
-    #!perl -w
-    use Mac::AppleEvents::Simple;
-    use Mac::Files;  # for NewAliasMinimal
-    $alias = NewAliasMinimal(scalar MacPerl::Volumes);
-    do_event(qw/aevt odoc MACS/, "'----':alis(\@\@)", $alias);
+	#!perl -w
+	use Mac::AppleEvents::Simple;
+	use Mac::Files;  # for NewAliasMinimal
+	$alias = NewAliasMinimal(scalar MacPerl::Volumes);
+	do_event(qw/aevt odoc MACS/, "'----':alis(\@\@)", $alias);
 
-    # [...]
-    use Mac::AppleEvents;  # for kAENoReply
-    $evt = build_event(qw/aevt odoc MACS/, "'----':alis(\@\@)", $alias);
-    die "There was a problem: $^E" if $^E;
-    $evt->send_event(kAENoReply);
-    die "There was a problem: $^E" if $^E;
+	# [...]
+	use Mac::AppleEvents;  # for kAENoReply
+	$evt = build_event(qw/aevt odoc MACS/, "'----':alis(\@\@)", $alias);
+	die "There was a problem: $^E" if $^E;
+	$evt->send_event(kAENoReply);
+	die "There was a problem: $^E" if $^E;
 
 
 =head1 DESCRIPTION
 
-**NOTE** You should have the Mac::AppleEvents and Mac::Memory distributions
-from the cpan-mac distribution.  See http://pudge.net/macperl/ for more info.
+You should have the latest cpan-mac distribution:
+
+	http://sourceforge.net/projects/cpan-mac/
+
+For more information, support, CVS, etc.:
+
+	http://sourceforge.net/projects/mac-ae-simple/
 
 This is just a simple way to do Apple Events.  The example above was 
 previously done as:
 
-    #!perl -w
-    use Mac::AppleEvents;
-    use Mac::Files;
-    $alias = NewAliasMinimal(scalar MacPerl::Volumes);
-    $evt = AEBuildAppleEvent(qw/aevt odoc sign MACS 0 0/,
-        "'----':alis(\@\@)", $alias) or die $^E;
-    $rep = AESend($evt, kAEWaitReply) or die $^E;
-    AEDisposeDesc($rep);
-    AEDisposeDesc($evt);
+	#!perl -w
+	use Mac::AppleEvents;
+	use Mac::Files;
+	$alias = NewAliasMinimal(scalar MacPerl::Volumes);
+	$evt = AEBuildAppleEvent(qw/aevt odoc sign MACS 0 0/,
+		"'----':alis(\@\@)", $alias) or die $^E;
+	$rep = AESend($evt, kAEWaitReply) or die $^E;
+	AEDisposeDesc($rep);
+	AEDisposeDesc($evt);
 
 The building, sending, and disposing is done automatically.  The function 
 returns an object containing the parameters, including the C<AEPrint> 
@@ -465,7 +511,7 @@ So if I also C<use>'d the Mac::AppleEvents module (or got the symbols via
 C<use Mac::AppleEvents::Simple ':all'>), I could extract the direct
 object from the reply like this:
 
-    $dobj = AEPrint(AEGetParamDesc($event->{REP}, keyDirectObject));
+	$dobj = AEPrint(AEGetParamDesc($event->{REP}, keyDirectObject));
 
 An easier way to get the direct object data, though, is with the C<get>
 method, described below.
@@ -490,21 +536,21 @@ and C<$^E> as appropriate.
 You may decide to roll your own error catching system, too.  In this
 example, the error is returned in the direct object parameter.
 
-    my $event = do_event( ... );
-    die $^E if $^E;  # catch execution errors
-    my_warn_for_this_app($event);  # catch AE reply errors
+	my $event = do_event( ... );
+	die $^E if $^E;  # catch execution errors
+	my_warn_for_this_app($event);  # catch AE reply errors
 
-    sub my_warn_for_this_app {
-        my $event = shift;
-        my $error = AEGetParamDesc($event->{REP}, keyDirectObject);
-        if ($error) {
-            my $err = $error->get;
-            if ($err =~ /^-\d+$/ && $^W) {
-                warn "Application error: $err";
-            }
-            AEDisposeDesc($error);
-        }
-    }
+	sub my_warn_for_this_app {
+		my $event = shift;
+		my $error = AEGetParamDesc($event->{REP}, keyDirectObject);
+		if ($error) {
+			my $err = $error->get;
+			if ($err =~ /^-\d+$/ && $^W) {
+				warn "Application error: $err";
+			}
+			AEDisposeDesc($error);
+		}
+	}
 
 
 =head1 REQUIREMENTS
@@ -535,16 +581,51 @@ C<do_event>.
 
 =item $EVENT->send_event([GETREPLY, PRIORITY, TIMEOUT]);
 
-    ***NOTE***
-    Previously, you could set $object->{REPLY}.  But REPLY was already
-    taken.  Whoops.  You now need to set $object->{GETREPLY}.
+	***NOTE***
+	Previously, you could set $object->{REPLY}.  But REPLY was already
+	taken.  Whoops.  You now need to set $object->{GETREPLY}.
 
 For sending events differently than the defaults, which are C<kAEWaitReply>,
 C<kAENormalPriority>, and C<kNoTimeout>, or for re-sending an event.  The
-parameters  are sticky for a given event, so:
+parameters are sticky for a given event, so:
 
-    $evt->send_event(kAENoReply);
-    $evt->send_event;  # kAENoReply is still used
+	$evt->send_event(kAENoReply);
+	$evt->send_event;  # kAENoReply is still used
+
+
+=item $EVENT->handle_event(CLASSID, EVENTID, CODE [, SYS]);
+
+Sets up an event handler by passing CLASSID and EVENTID of the event
+to be handled.  If SYS is true, then it sets up a system-wide event handler,
+instead of an application-wide event handler.
+
+CODE is a code reference that will be passed three parameters:
+a Mac::AppleEvents::Simple object, the CLASSID, and the EVENTID.
+The object will work similarly to a regular object.  The REP and EVT
+parameters are switched (that is, you get the event in the REP parameter,
+and the reply to be sent is in the EVT parameter).  This is so the other
+methods will work just fine, and since you will only be using actual methods
+on the object and not accessing its data directly, it shouldn't matter, right?
+
+The other difference is that there is an additional data member in the object,
+called HANDLER, which is for properly disposing of the handler when you are done
+with it.  Your event handler should get disposed of for you in the background.
+
+An example:
+
+	my @data_out;
+	handle_event('CLAS', 'EVNT', \&handler);
+	sub handler {
+		my($evt) = @_;
+		my @data = $evt->get;
+		push @data_out, [$data[0], $data[9]] if $data[0] && $data[9];
+	}
+
+	while (1) {
+		if (my $data = shift @data_out) {
+			print "woohoo: @$data\n";
+		}	
+	}
 
 
 =item $EVENT->data([KEY])
@@ -596,11 +677,22 @@ Simply packs a PSN into a double long.
 
 =head1 EXPORT
 
-Exports functions C<do_event>, C<build_event>.
+Exports functions C<do_event>, C<build_event>, C<handle_event>,
+C<pack_ppc>, C<pack_eppc>, C<pack_psn>.  All the symbols from
+Mac::AppleEvents are available in C<@EXPORT_OK> and through the
+C<all> export tag.
 
 =head1 HISTORY
 
 =over 4
+
+=item v1.00, Monday, September 11, 2000
+
+Added C<handle_event> function.
+
+Use C<cluck> from the Carp module if available if C<$WARN> is greater
+than 1 (fall back to C<carp> if C<cluck> not available).
+
 
 =item v0.81, Tuesday, November 2, 1999
 
@@ -622,10 +714,12 @@ off empirical observation, rather than specs.  Added C<pack_ppc>.
 
 Added C<pack_psn> to simply get a PSN into a long double.
 
+
 =item v0.72, Wednesday, September 1, 1999
 
 Fixed bug in C<_event_error> that did not return proper value,
 or clear C<$^E> properly.  (Francis Clarke E<lt>F.Clarke@swansea.ac.ukE<gt>)
+
 
 =item v0.71, Tuesday, June 8, 1999
 
@@ -633,6 +727,7 @@ Added C<$DEBUG> global.  Will be used more.
 
 Added some coercions so certain types will be returned as typeChar
 from the C<get> method.
+
 
 =item v0.70, Friday, June 4, 1999
 
@@ -650,6 +745,7 @@ Made C<$Mac::AppleEvents::Simple::SWITCH> C<0> by default instead of C<1>.
 
 Added global C<%DESCS> to save AEDescs for disposal later.
 
+
 =item v0.65, May 30, 1999
 
 No longer return entire desc from C<get> if direct object not supplied.
@@ -661,6 +757,7 @@ Added a bunch of stuff to C<%AE_GET>.
 C<get> method now automatically unpacks nested AE records and AE lists into
 perl hash and array references.
 
+
 =item v0.61, May 1, 1999
 
 Made default timeout C<kNoTimeOut>.
@@ -668,18 +765,22 @@ Made default timeout C<kNoTimeOut>.
 Changed use of C<REPLY> for parameter to C<AESend> to C<GETREPLY>.
 C<REPLY> was already in use, D'oh!
 
+
 =item v0.60, January 28, 1999
 
 Added C<get> and C<data> methods.
+
 
 =item v0.52, September 30, 1998
 
 Re-upload, sigh.
 
+
 =item v0.51, September 29, 1998
 
-Fixed problems accepting parameters in C<send_event>.   Sped up
+Fixed problems accepting parameters in C<send_event>.  Sped up
 switching routine significantly.
+
 
 =item v0.50, September 16, 1998
 
@@ -689,15 +790,18 @@ app is not already running.
 Added warnings for event errors if present and if C<$^W> is nonzero.
 Only works if event errors use standard keywords C<errs> or C<errn>.
 
+
 =item v0.10, June 2, 1998
 
 Changed C<new> to C<build_event>, and C<ae_send> to C<send_event>.
 
 Made default C<AESend> parameters overridable via C<send_event>.
 
+
 =item v0.03, June 1, 1998
 
 Added C<$SWITCH> global var to override making target app go to front.
+
 
 =item v0.02, May 19, 1998
 
@@ -709,16 +813,19 @@ Here goes ...
 
 Chris Nandor E<lt>pudge@pobox.comE<gt>, http://pudge.net/
 
-Copyright (c) 1999 Chris Nandor.  All rights reserved.  This program is
-free software; you can redistribute it and/or modify it under the terms
+Copyright (c) 1998-2000 Chris Nandor.  All rights reserved.  This program
+is free software; you can redistribute it and/or modify it under the terms
 of the Artistic License, distributed with Perl.
 
 =head1 SEE ALSO
 
-Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat.
+Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat, Inside Macintosh: 
+Interapplication Communication.
+
+	http://sourceforge.net/projects/mac-ae-simple/
 
 =cut
 
 =head1 VERSION
 
-v0.81, Tuesday, November 2, 1999
+v1.00, Monday, September 11, 2000
