@@ -59,7 +59,7 @@ EOT
 }
 
 SKIP: {
-#	skip "Mac::AppleEvents::Simple", 13;
+#	skip "Mac::AppleEvents::Simple", 11;
 
 	ok(do_event(qw(misc actv MACS)), "Activate $target");
 
@@ -83,6 +83,11 @@ SKIP: {
 
 	ok(do_event(qw(core clos), $target, "'----':$win"), "Close window");
 	cmp_ok($!, '==', 0, "No error");
+}
+
+SKIP: {
+	skip "Not regular process", 2
+		unless $Process{$psn}->processType;
 
 	ok(do_event(qw(misc actv), { typeProcessSerialNumber() => pack_psn($psn) }),
 		"Activate original process");

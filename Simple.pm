@@ -22,8 +22,8 @@ use Mac::Types;
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.9 2003/04/15 00:20:14 pudge Exp $';
-$VERSION  = '1.03';
+$REVISION = '$Id: Simple.pm,v 1.10 2003/05/13 03:54:53 pudge Exp $';
+$VERSION  = '1.04';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -757,4 +757,4 @@ Interapplication Communication.
 
 =head1 VERSION
 
-v1.03, Monday, April 14, 2003
+v1.04, Monday, May 12, 2003

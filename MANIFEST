@@ -1,5 +1,3 @@
-.cvsignore
-.releaserc
 Changes
 MANIFEST
 Makefile.PL

@@ -1,3 +1,7 @@
+* v1.03, Monday, May 12, 2003
+
+   Fix a test, update Makefile.PL.
+
 * v1.03, Monday, April 14, 2003
 
    Updated tests and notes, and require more recent Mac::Carbon,
