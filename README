@@ -1,15 +1,12 @@
------BEGIN PGP SIGNED MESSAGE-----
-
-Tuesday, September 29, 1998
+Thursday, January 28, 1999
 
 This archive can always be obtained from:
 
-    http://pudge.net/macperl/
-    http://perl.com/CPAN/authors/id/CNANDOR/
-    http://perl.com/CPAN/modules/by-module/Mac/
+    http://www.perl.com/CPAN/authors/id/CNANDOR/
+    http://www.perl.com/CPAN/modules/by-module/Mac/
 
 The file is a tarred, gzipped file.  Use Stuffit Expander or a
-similar program to get at the archive.
+similar program (like my untargzipme) to get at the archive.
 
 Please let me know how well it does(n't) work, and any changes you'd 
 like to see.
@@ -29,8 +26,7 @@ SYNOPSIS
 
             # [...]
             use Mac::AppleEvents;  # for kAENoReply()
-            $evt = build_event(qw/aevt odoc MACS/, "'----':alis(\@\@)",
-$alias);
+            $evt = build_event(qw/aevt odoc MACS/, "'----':alis(\@\@)", $alias);
             $evt->send_event(kAENoReply());
 
 DESCRIPTION
@@ -117,10 +113,33 @@ FUNCTIONS
         first text in curly quotes it finds in scalar context, and all of
         them in a list in list context.
 
+    $EVENT->data([KEY])
+    $EVENT->get([KEY])
+    data(DESC[, KEY])
+    get(DESC[, KEY])
+        Similar to `get' and `data' from the Mac::AppleEvents module. Get
+        data from a Mac::AppleEvents::Simple object for a given key
+        (keyDirectObject is the default). Can also be called as a
+        function, where an AEDesc object is passed as the first parameter:
+
+            $data = $event->data;   # get an AE list of aliases
+            @alis = Mac::AppleEvents::Simple::get($desc);  # get resolved aliases
+
+        The above example is for the case when a list is inside a list. If
+        the descriptor in KEY is an AE list, both `get' and `data' will
+        return an array of the descriptors or data in list context, and
+        the first element in scalar context.
+
 EXPORT
     Exports functions `do_event()', `build_event()', `get_text()'.
 
 HISTORY
+    v0.60, January 28, 1999
+        Added `get' and `data' methods.
+
+    v0.52, September 30, 1998
+        Re-upload, sigh.
+
     v0.51, September 29, 1998
         Fixed problems accepting parameters in `send_event'. Sped up
         switching routine significantly.
@@ -156,19 +175,9 @@ AUTHOR
 SEE ALSO
     Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat.
 
+
 #============================================================================
 
-- -- 
+-- 
 Chris Nandor          mailto:pudge@pobox.com         http://pudge.net/
 %PGPKey = ('B76E72AD', [1024, '0824090B CE73CA10  1FF77F13 8180B6B6'])
-
------BEGIN PGP SIGNATURE-----
-Version: PGPfreeware 5.0 for non-commercial use <http://www.pgp.com>
-Charset: noconv
-
-iQCVAwUBNhFgpShcZja3bnKtAQEWGAP+Oqw9YHx+b5BrTafxMMqt2DdkrL/sBgdG
-hpJBui6Smb3ZYurJBs8ZlNJCpeJHintXG3pys4rdV6phKi+0Kaz4vOeqWjRVGaCO
-oVxSPeO2/qSy56G/RmhWfeZ2ygHFIItTN6Hj/IVzn6JwXbY1TdVaiDqF12I/VH1Q
-fM8o5+sBX4A=
-=PbE7
------END PGP SIGNATURE-----

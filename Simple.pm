@@ -2,8 +2,9 @@ package Mac::AppleEvents::Simple;
 
 use Mac::AppleEvents;
 use Mac::Processes;
-use Mac::Apps::Launch 1.60;
-use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH);
+use Mac::Apps::Launch;
+use Mac::Files;
+use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH %AE_GET);
 use strict;
 use Exporter;
 use Carp;
@@ -11,7 +12,7 @@ use Carp;
 @EXPORT = qw(do_event build_event get_text);
 @EXPORT_OK = @Mac::AppleEvents::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.52';
+$VERSION = '0.60';
 $SWITCH = 1;
 
 sub do_event {
@@ -44,6 +45,55 @@ sub get_text {
 	push @arr, $1 while ($self =~ /Ò([^Ó]*)Ó/g);
 	return wantarray ? @arr : $arr[0];
 }
+
+sub data {
+    my($self, $key, $d, $desc, $num, @ret) = @_;
+    $d = ref($self) eq __PACKAGE__ ? $self->{REP} : $self;
+    return unless ref($d) eq 'AEDesc';
+    return unless
+        defined($desc = AEGetParamDesc($d, $key || keyDirectObject()))
+            ||
+        defined($desc = $d);
+    if ($num = AECountItems($desc)) {
+        for (1..$num) {
+            my $d = AEGetNthDesc($desc, $_);
+            push @ret, $d;
+        }
+        return wantarray ? @ret : $ret[0];
+    } else {
+        return $desc;
+    }
+}
+
+sub get {
+    my($self, $key, $d, $desc, $num, @ret) = @_;
+    $d = ref($self) eq __PACKAGE__ ? $self->{REP} : $self;
+    return unless ref($d) eq 'AEDesc';
+    return unless
+        defined($desc = AEGetParamDesc($d, $key || keyDirectObject()))
+            ||
+        defined($desc = $d);
+    if ($num = AECountItems($desc)) {
+        for (1..$num) {
+            push @ret, _getdata(AEGetNthDesc($desc, $_));
+        }
+        return wantarray ? @ret : $ret[0];
+    } else {
+        return _getdata($desc);
+    }
+}
+
+sub _getdata {
+    my($desc, $ret) = @_;
+    my $type = $desc->type;
+    $ret = exists($AE_GET{$type}) ? &{$AE_GET{$type}}($desc) : $desc->get;
+    AEDisposeDesc($desc);
+    return $ret;
+}
+
+%AE_GET = (
+    'alis' => sub {ResolveAlias(shift->data)},
+);
 
 sub _sending {
     my $self = shift;
@@ -246,6 +296,28 @@ This basically just strips out the curly quotes.  It returns the first text in
 curly quotes it finds in scalar context, and all of them in a list in list 
 context.
 
+=item $EVENT->data([KEY])
+
+=item $EVENT->get([KEY])
+
+=item data(DESC[, KEY])
+
+=item get(DESC[, KEY])
+
+Similar to C<get> and C<data> from the Mac::AppleEvents module.
+Get data from a Mac::AppleEvents::Simple object for a given key
+(keyDirectObject is the default).  Can also be called as a function,
+where an AEDesc object is passed as the first parameter:
+
+    $data = $event->data;   # get an AE list of aliases
+    @alis = Mac::AppleEvents::Simple::get($desc);  # get resolved aliases
+
+The above example is for the case when a list is inside a list.  If the
+descriptor in KEY is an AE list, both C<get> and C<data> will return
+an array of the descriptors or data in list context, and the first element
+in scalar context.
+
+
 =back
 
 =head1 EXPORT
@@ -255,6 +327,10 @@ Exports functions C<do_event()>, C<build_event()>, C<get_text()>.
 =head1 HISTORY
 
 =over 4
+
+=item v0.60, January 28, 1999
+
+Added C<get> and C<data> methods.
 
 =item v0.52, September 30, 1998
 
