@@ -1,7 +1,7 @@
 package Mac::AppleEvents::Simple;
 require 5.004;
 use Carp;
-use Mac::AppleEvents;
+use Mac::AppleEvents 1.22;
 use Mac::Processes;
 use Mac::Apps::Launch 1.70;
 use Mac::Files;
@@ -15,10 +15,10 @@ use Carp;
 #-----------------------------------------------------------------
 
 @ISA = qw(Exporter Mac::AppleEvents);
-@EXPORT = qw(do_event build_event pack_ppc pack_psn);
+@EXPORT = qw(do_event build_event pack_ppc pack_eppc pack_psn);
 @EXPORT_OK = @Mac::AppleEvents::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.80';
+$VERSION = '0.81';
 $DEBUG  ||= 0;
 $SWITCH ||= 0;
 $WARN   ||= 0;
@@ -51,6 +51,18 @@ sub send_event {
     $self->_send_event(@_) and return $self->_warn;
     $self->_sending and return $self->_warn;
     $self;
+}
+
+#-----------------------------------------------------------------
+
+sub type {
+    my($self, $key) = @_;
+    my($d, $desc);
+    $d = ref $self eq __PACKAGE__ ? $self->{REP} : $self;
+    return unless ref $d eq 'AEDesc';
+    return unless
+        defined($desc = AEGetParamDesc($d, $key || keyDirectObject));
+    return $desc->type;
 }
 
 #-----------------------------------------------------------------
@@ -88,7 +100,6 @@ sub get {
         defined($desc = AEGetParamDesc($d, $key || keyDirectObject));
 
     if ($num = AECountItems($desc)) {
-
         if ($desc->type eq typeAEList) {
             my @ret;
             for (1..$num) {
@@ -121,26 +132,60 @@ sub pack_psn {
 
 #-----------------------------------------------------------------
 
-sub pack_ppc {
-    my $format = 'lsca33sca33sca33ca33ca33';
-    my $type   = 'PPCToolbox';
-    my($id, $name, $server, $zone) = @_;
-    $zone ||= '*';
-    my @ppcdata = (
-        0,                          # session id
-        0,                          # script code (smRoman English?)
-        length($name), $name,       # as in PPC Chooser
-        2,                          # portKindSelector, ppcByCreatorAndType
-                                    # should be 1, is 2?
-        8,                          # length of port string
-        $id . 'ep01',               # port string, why "ep01"?
-        1,                          # PPCLocationKind, PPCNBPLocation
-        length($server), $server,   # server name
-        length($type), $type,       # port type
-        length($zone), $zone,       # zone
-    );
-    my $targ = pack $format, @ppcdata;
-    print unpack $format, $targ if $DEBUG > 1;
+sub pack_ppc  { _pack_ppc('ppc',  @_) }
+sub pack_eppc { _pack_ppc('eppc', @_) }
+
+sub _pack_ppc {
+    my($type, $id, $name, $server, $zone) = @_;
+    my %TargetID;
+
+    $TargetID{sess} = ['l', 0];             # long sessionID
+    $TargetID{name} = ['sca33sca33',        # PPCPortRec name
+        0,                                      # ScriptCode nameScript
+        length($name), $name,                   # Str32Field name
+        2,                                      # PPCPortKinds ppcByString
+        length($id . 'ep01'), $id . 'ep01',     # Str32 portTypeStr
+        # why ep01?  dick karpinski suggests it might be
+        # "Ethernet port 01", so maybe we need to find out
+        # the port automatically ... ick.
+    ];
+
+    if ($type eq 'ppc') {
+        my $atype = 'PPCToolbox';
+        $zone ||= '*';
+        $TargetID{loca} = ['sca33ca33ca33', # LocationNameRec location
+            1,                              # PPCLocationKind ppcNBPLocation
+                                            # EntityName
+            length($server), $server,           # Str32Field objStr
+            length($atype), $atype,             # Str32Field typeStr
+            length($zone), $zone,               # Str32Field zoneStr
+        ];
+    } elsif ($type eq 'eppc') {
+        $TargetID{loca} = ['ssssa*',        # LocationNameRec location
+            3,                              # PPCLocationKind 
+                                            #     ppcXTIAddrLocation
+                                            # PPCAddrRec xtiType
+            0,                                  # UInt8 Reserved (0)
+            2 + length($server),                # UInt8 xtiAddrLen
+                                                # PPCXTIAddress xtiAddr
+            42,                                     # PPCXTIAddressType
+                                                    #     kDNSAddrType
+            $server                                 # UInt8 fAddress[96]
+        ];
+    } else {
+        carp "Type $type not recognized\n";
+    }
+
+    my($format, @args, $targ);
+    for (qw[sess name loca]) {
+        my @foo = @{$TargetID{$_}};
+        $format .= shift @foo;
+        push @args, @foo;
+    }
+    $targ  = pack $format, @args;
+
+    printf("> %s\n< %s\n\n", $targ, join("|", unpack $format, $targ))
+        if $DEBUG > 1;
     return $targ;
 }
 
@@ -205,9 +250,10 @@ sub _print_desc {
 
 sub _build_event {
     my $self = shift;
+    $self->{TRNS_ID} ||= kAnyTransactionID;
     $self->{EVT} = AEBuildAppleEvent(
         $self->{CLASS}, $self->{EVNT}, $self->{ADDTYPE},
-        $self->{ADDRESS}, kAutoGenerateReturnID, kAnyTransactionID,
+        $self->{ADDRESS}, kAutoGenerateReturnID, $self->{TRNS_ID},
         $self->{DESC}, @{$self->{PARAMS}}
     );
     $self->{ERROR} = $^E;
@@ -220,8 +266,10 @@ sub _send_event {
     my $self = $_[0];
 
     if ($self->{ADDTYPE} eq typeApplSignature) {
-        LaunchApps($self->{APP}, 0) unless IsRunning($self->{APP});
-        SetFront($self->{APP}) if $SWITCH;
+        if (! IsRunning($self->{ADDRESS})) {
+            LaunchApps($self->{ADDRESS}, 0) or die $^E;
+        }
+        SetFront($self->{ADDRESS}) if $SWITCH;
     }
 
     $self->{R} = defined $_[1] ? $_[1] : $self->{GETREPLY} || kAEWaitReply;
@@ -256,8 +304,8 @@ sub _event_error {
         }
     }
 
-    $self->{ERROR} = $^E;
-    $self->{ERRNO} = 0+$^E;
+    $self->{ERROR} ||= $^E;
+    $self->{ERRNO} ||= 0+$^E;
 }
 
 #-----------------------------------------------------------------
@@ -331,13 +379,23 @@ BEGIN {
             return \%data;
         },
 
+        typeProcessSerialNumber() => sub {
+            my $psn = join '', unpack 'll', $_[0]->data->get;
+            $psn =~ s/^0+//;
+            $psn;
+        },
+
         STXT => sub { _get_coerce($_[0], typeChar) },
 
         QDpt                    => sub {
             my $string = $_[0]->data->get;
             return [reverse unpack "s4s4", $string]
-        
         },
+
+        qdrt                    => sub {
+            return [ ($_[0]->get) ]; # [1,0,3,2]
+        },
+
 
     );
 
@@ -523,6 +581,16 @@ Accepts the 4-character ID of the target app, the name of the app as it
 may appear in the PPC Chooser, and the server and zone it is on.  If
 not supplied, zone is assumed to be '*'.
 
+=item pack_eppc(ID, NAME, HOST)
+
+Packs an EPPC record suitable for using in C<build_event> and C<do_event>.
+Accepts the 4-character ID of the target app, the name of the app as it
+may appear in the PPC Chooser, and the hostname of the machine it is on.
+Requires Mac OS 9.
+
+=item pack_psn(PSN)
+
+Simply packs a PSN into a double long.
 
 =back
 
@@ -533,6 +601,18 @@ Exports functions C<do_event>, C<build_event>.
 =head1 HISTORY
 
 =over 4
+
+=item v0.81, Tuesday, November 2, 1999
+
+Added requirement for Mac::AppleEvents version 1.22
+(included in distribution).
+
+Added C<type> method.
+
+Added EPPC addressing (Apple events over TCP/IP).  Seems to work
+as well as the PPC addressing.  Requires Mac OS 9.  Added
+C<pack_eppc>.
+
 
 =item v0.80, Friday, September 10, 1999
 
@@ -641,4 +721,4 @@ Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat.
 
 =head1 VERSION
 
-v0.80, Friday, September 10, 1999
+v0.81, Tuesday, November 2, 1999

@@ -1,4 +1,4 @@
-Friday, September 10, 1999
+Tuesday, November 2, 1999
 
 This archive can always be obtained from:
 
@@ -159,10 +159,28 @@ FUNCTIONS
         of the app as it may appear in the PPC Chooser, and the server and
         zone it is on. If not supplied, zone is assumed to be '*'.
 
+    pack_eppc(ID, NAME, HOST)
+        Packs an EPPC record suitable for using in `build_event' and
+        `do_event'. Accepts the 4-character ID of the target app, the name
+        of the app as it may appear in the PPC Chooser, and the hostname
+        of the machine it is on. Requires Mac OS 9.
+
+    pack_psn(PSN)
+        Simply packs a PSN into a double long.
+
 EXPORT
     Exports functions `do_event', `build_event'.
 
 HISTORY
+    v0.81, Tuesday, November 2, 1999
+        Added requirement for Mac::AppleEvents version 1.22 (included in
+        distribution).
+
+        Added `type' method.
+
+        Added EPPC addressing (Apple events over TCP/IP). Seems to work as
+        well as the PPC addressing. Requires Mac OS 9. Added `pack_eppc'.
+
     v0.80, Friday, September 10, 1999
         Added PPC port addressing. Still experimental, as I am working
         largely off empirical observation, rather than specs. Added
@@ -254,7 +272,7 @@ SEE ALSO
     Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat.
 
 VERSION
-    v0.80, Friday, September 10, 1999
+    v0.81, Tuesday, November 2, 1999
 
 #============================================================================
 

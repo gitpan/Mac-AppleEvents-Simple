@@ -29,11 +29,20 @@ if (
 	print "not ok 2: upgrade MacPerl to 5.2.0r4 or better\n";
 }
 
+my $evt = do_event(qw/core getd MACS/,
+  "'----':obj {form:prop, want:type(prop), seld:type(pname), from:obj {form:prop, want:type(prop), seld:type(sdsk), from:'null'()}}",
+);
+(my $vol = MacPerl::MakePath(scalar MacPerl::Volumes)) =~ s/:$//;
+my $get = $evt->get;
+printf "%sok 3%s\n", $vol ne $evt->get ? ('not ', "<$get ne $vol>") : ('', '');
+
+__END__
 open FOO, ">Dev:Console:Foo" or die $!;
 select FOO;
 $|++;
 select STDOUT;
 print FOO "ha!\n";
+
 my $evt = build_event(qw/core clos McPL/,
   "'----':obj {form:name, want:type(cwin), seld:TEXT(\@), from:'null'()}",
   'Foo'

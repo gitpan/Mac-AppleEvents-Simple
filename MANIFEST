@@ -1,3 +1,6 @@
+lib/Mac/AppleEvents.pm
+lib/MacCFM68K/auto/Mac/AppleEvents/AppleEvents
+lib/MacPPC/auto/Mac/AppleEvents/AppleEvents
 MANIFEST
 Makefile.PL
 README
