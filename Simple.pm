@@ -2,7 +2,7 @@ package Mac::AppleEvents::Simple;
 require 5.004;
 use strict;
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH
-	%AE_GET %DESCS $DESCCOUNT $WARN $DEBUG $REVISION);
+	$CLASSREC $ENUMREC %AE_GET %DESCS $DESCCOUNT $WARN $DEBUG $REVISION);
 
 use Carp;
 use Exporter;
@@ -22,14 +22,15 @@ use Mac::Types;
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.4 2000/09/15 00:21:12 pudge Exp $';
-$VERSION  = '1.00';
+$REVISION = '$Id: Simple.pm,v 1.6 2002/01/15 15:48:26 pudge Exp $';
+$VERSION  = '1.01';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
 
+# many users won't have Carp::cluck ...
 sub cluck;
-*cluck = *Carp::cluck{CODE} || *carp{CODE};
+*cluck = *Carp::cluck{CODE} || sub { warn Carp::longmess @_ };
 
 #-----------------------------------------------------------------
 # Main public methods and functions
@@ -225,12 +226,30 @@ sub _pack_ppc {
 #-----------------------------------------------------------------
 
 sub _getdata {
-	my $desc = shift;
+	my($desc) = @_;
 	my $type = $desc->type;
+	my($ret, $keep);
 
-	my($ret, $keep) = exists($AE_GET{$type})
-		? $AE_GET{$type}->($desc)
-		: $desc->get;
+	if ($type eq typeEnumerated && defined &$ENUMREC) {
+		$ret = $ENUMREC->($desc->get);
+	}
+
+	if (!$ret && !exists $AE_GET{$type} && !exists $MacUnpack{$type} && defined &$CLASSREC) {
+		if ($CLASSREC->($type)) {
+			my $tmp = AECoerceDesc($desc, typeAERecord); # or die "Type [$type]: $^E\n";
+			if ($tmp) {
+				AEDisposeDesc $desc;
+				$desc = $tmp;
+				$type = typeAERecord;
+			}
+		}
+	}
+
+	if (!$ret) {
+		($ret, $keep) = exists($AE_GET{$type})
+			? $AE_GET{$type}->($desc)
+			: $desc->get;
+	}
 
 	AEDisposeDesc $desc unless $keep;
 	return $ret;
@@ -441,6 +460,7 @@ BEGIN {
 	);
 
 	%AE_GET = (%AE_GET,
+		utxt => $AE_GET{STXT},
 		itxt => $AE_GET{STXT},
 		tTXT => $AE_GET{STXT},
 #		  UREC => sub {
@@ -450,7 +470,10 @@ BEGIN {
 
 }
 
-sub _get_coerce { AECoerceDesc(@_)->get }
+sub _get_coerce {
+	my $data = AECoerceDesc(@_) or die $^E;
+	return $data->get;
+}
 
 #=============================================================================#
 
@@ -686,6 +709,14 @@ C<all> export tag.
 
 =over 4
 
+=item v1.01, Monday, January 14, 2002
+
+Make _getdata smarter.
+
+Added utxt coercion to text.  Catch errors in coercion.
+
+Change license to be that of Perl.
+
 =item v1.00, Monday, September 11, 2000
 
 Added C<handle_event> function.
@@ -813,9 +844,9 @@ Here goes ...
 
 Chris Nandor E<lt>pudge@pobox.comE<gt>, http://pudge.net/
 
-Copyright (c) 1998-2000 Chris Nandor.  All rights reserved.  This program
-is free software; you can redistribute it and/or modify it under the terms
-of the Artistic License, distributed with Perl.
+Copyright (c) 1998-2002 Chris Nandor.  All rights reserved.  This program
+is free software; you can redistribute it and/or modify it under the same
+terms as Perl itself.
 
 =head1 SEE ALSO
 
@@ -828,4 +859,4 @@ Interapplication Communication.
 
 =head1 VERSION
 
-v1.00, Monday, September 11, 2000
+v1.01, Monday, January 14, 2002
