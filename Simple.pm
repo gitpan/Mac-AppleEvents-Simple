@@ -6,12 +6,13 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH
 
 use Carp;
 use Exporter;
-use Mac::AppleEvents 1.28;
-use Mac::Apps::Launch 1.80;
+use Mac::AppleEvents 1.29;
+use Mac::Apps::Launch 1.81;
 use Mac::Processes 1.04;
 use Mac::Files;
 use Mac::Types;
 use Mac::Errors '$MacError';
+use Time::Epoch 'epoch2perl';
 
 #-----------------------------------------------------------------
 
@@ -23,8 +24,8 @@ use Mac::Errors '$MacError';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.18 2003/11/20 07:57:27 pudge Exp $';
-$VERSION  = '1.10';
+$REVISION = '$Id: Simple.pm,v 1.19 2004/02/18 07:55:11 pudge Exp $';
+$VERSION  = '1.11';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -446,6 +447,9 @@ END {
 
 BEGIN {
 	%AE_GET = (
+		typeComp()			=> sub {
+			return _get_coerce($_[0], typeFloat);
+		},
 
 		typeAlias()			=> sub {
 			my $alis = $_[0]->data;
@@ -480,16 +484,16 @@ BEGIN {
 		typeProcessSerialNumber() 	=> sub {
 			my $psn = join '', unpack 'LL', $_[0]->data->get;
 			$psn =~ s/^0+//;
-			$psn;
+			return $psn;
 		},
 
 		typeStyledText()		=> sub {
-			_get_coerce($_[0], typeChar)
+			return _get_coerce($_[0], typeChar);
 		},
 
 		typeQDPoint()			=> sub {
 			my $string = $_[0]->data->get;
-			return [reverse unpack "s4s4", $string]
+			return [reverse unpack "s4s4", $string];
 		},
 
 		typeQDRectangle()		=> sub {
@@ -502,7 +506,10 @@ BEGIN {
 		typeUnicodeText()	=> $AE_GET{typeStyledText()},
 		typeIntlText()		=> $AE_GET{typeStyledText()},
 		typeAEText()		=> $AE_GET{typeStyledText()},
-		'ldt '			=> $AE_GET{typeProcessSerialNumber()}, # typeLongDateTime
+		typeLongDateTime()	=> sub {
+			my $ldt = $AE_GET{typeProcessSerialNumber()}->($_[0]);
+			return $^O eq 'MacOS' ? $ldt : epoch2perl($ldt, 'macos');
+		}
 #		  UREC => sub {
 #			  $AE_GET{typeAERecord()}->(AECoerceDesc(shift, typeAERecord));
 #		  },

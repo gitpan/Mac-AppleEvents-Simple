@@ -1,8 +1,15 @@
+* v1.11, Wednesday, February 18, 2004
+
+   Added typeComp (coerce to float).
+
+   Added typeLongDateTime (convert to/from Mac OS); added Time::Epoch.
+   (Lars Eggert)
+
 * v1.10, Wednesday, November 19, 2003
 
-   Fixes for $^E bug in perl 5.8.x (and make $^E handling more robust).
+   Fixed $^E bug in perl 5.8.x (and make $^E handling more robust).
 
-   Change pack_pid() to use actual PID instead of converting to PSN,
+   Changed pack_pid() to use actual PID instead of converting to PSN,
    using typeKernelProcessID instead of typeProcessSerialNumber.
 
 
