@@ -24,8 +24,8 @@ use Time::Epoch 'epoch2perl';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.22 2004/06/08 19:51:17 pudge Exp $';
-$VERSION  = '1.14';
+$REVISION = '$Id: Simple.pm,v 1.23 2004/12/07 06:16:16 pudge Exp $';
+$VERSION  = '1.15';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -358,7 +358,7 @@ sub _send_event {
 	if ($self->{ADDTYPE} eq typeApplSignature) {
 		if (! IsRunning($self->{ADDRESS})) {
 			LaunchApps($self->{ADDRESS}, 0) or
-				die "Can't launch '$self->{ADDRESS}': $MacError";
+				warn "Can't launch '$self->{ADDRESS}': $MacError";
 		}
 		SetFront($self->{ADDRESS}) if $SWITCH;
 
@@ -366,7 +366,7 @@ sub _send_event {
 		my $path = LSFindApplicationForInfo('', $self->{ADDRESS});
 		if (! IsRunning($path, 1)) {
 			LaunchSpecs($path, 0) or
-				die "Can't launch '$self->{ADDRESS}': $MacError";
+				warn "Can't launch '$self->{ADDRESS}': $MacError";
 		}
 		SetFront($path, 1) if $SWITCH;
 	}
@@ -451,7 +451,7 @@ END {
 		print "Destroying $desc\n" if $DEBUG;
 		if ($desc) {
 			eval { print "\t", AEPrint($DESCS{$desc}), "\n" } if $DEBUG;
-			AEDisposeDesc $DESCS{$desc} or die "Can't dispose $desc: $MacError";
+			AEDisposeDesc $DESCS{$desc} or warn "Can't dispose $desc: $MacError";
 		}
 	}
 }
