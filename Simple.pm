@@ -6,9 +6,9 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH
 
 use Carp;
 use Exporter;
-use Mac::AppleEvents 1.22;
-use Mac::Apps::Launch 1.70;
-use Mac::Processes 1.01;
+use Mac::AppleEvents 1.25;
+use Mac::Apps::Launch 1.80;
+use Mac::Processes 1.04;
 use Mac::Files;
 use Mac::Types;
 
@@ -17,18 +17,18 @@ use Mac::Types;
 @ISA = qw(Exporter Mac::AppleEvents);
 @EXPORT = qw(
 	do_event build_event handle_event
-	pack_ppc pack_eppc pack_psn
+	pack_ppc pack_eppc pack_psn pack_pid
 );
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.7 2002/05/08 03:00:20 pudge Exp $';
-$VERSION  = '1.02';
+$REVISION = '$Id: Simple.pm,v 1.9 2003/04/15 00:20:14 pudge Exp $';
+$VERSION  = '1.03';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
 
-# many users won't have Carp::cluck ...
+# some users won't have Carp::cluck ...
 sub cluck;
 *cluck = *Carp::cluck{CODE} || sub { warn Carp::longmess @_ };
 
@@ -39,8 +39,8 @@ sub cluck;
 sub do_event {
 	my $self = bless _construct(@_), __PACKAGE__;
 	$self->_build_event and return $self->_warn;
-	$self->_send_event and return $self->_warn;
-	$self->_sending and return $self->_warn;
+	$self->_send_event  and return $self->_warn;
+	$self->_sending     and return $self->_warn;
 	$self;
 }
 
@@ -48,7 +48,7 @@ sub do_event {
 
 sub build_event {
 	my $self = bless _construct(@_), __PACKAGE__;
-	$self->_build_event and return $self->_warn;
+	$self->_build_event       and return $self->_warn;
 	$self->_print_desc('EVT') and return $self->_warn;
 	$self;
 }
@@ -81,7 +81,7 @@ sub handle_event {
 sub send_event {
 	my $self = shift;
 	$self->_send_event(@_) and return $self->_warn;
-	$self->_sending and return $self->_warn;
+	$self->_sending        and return $self->_warn;
 	$self;
 }
 
@@ -158,8 +158,15 @@ sub get {
 #-----------------------------------------------------------------
 
 sub pack_psn {
-	my $psn = shift;
+	my($psn) = @_;
 	return pack 'll', 0, $psn;
+}
+
+#-----------------------------------------------------------------
+
+sub pack_pid {
+	my($pid) = @_;
+	return pack_psn(GetProcessForPID($pid));
 }
 
 #-----------------------------------------------------------------
@@ -269,8 +276,8 @@ sub _sending {
 sub _construct {
 	my $self = {};
 	$self->{CLASS} = shift or croak 'Not enough parameters in AE build';
-	$self->{EVNT} = shift or croak 'Not enough parameters in AE build';
-	$self->{APP} = shift or croak 'Not enough parameters in AE build';
+	$self->{EVNT} =  shift or croak 'Not enough parameters in AE build';
+	$self->{APP} =   shift or croak 'Not enough parameters in AE build';
 
 	if (ref $self->{APP} eq 'HASH') {
 		for (keys %{$self->{APP}}) {
@@ -446,23 +453,25 @@ BEGIN {
 			$psn;
 		},
 
-		STXT => sub { _get_coerce($_[0], typeChar) },
+		typeStyledText()		=> sub {
+			_get_coerce($_[0], typeChar)
+		},
 
-		QDpt => sub {
+		typeQDPoint()			=> sub {
 			my $string = $_[0]->data->get;
 			return [reverse unpack "s4s4", $string]
 		},
 
-		qdrt => sub {
+		typeQDRectangle()		=> sub {
 			return [ ($_[0]->get) ]; # [1,0,3,2]
 		},
 
 	);
 
 	%AE_GET = (%AE_GET,
-		utxt => $AE_GET{STXT},
-		itxt => $AE_GET{STXT},
-		tTXT => $AE_GET{STXT},
+		typeUnicodeText()	=> $AE_GET{STXT},
+		typeIntlText()		=> $AE_GET{STXT},
+		typeAEText()		=> $AE_GET{STXT},
 #		  UREC => sub {
 #			  $AE_GET{typeAERecord()}->(AECoerceDesc(shift, typeAERecord));
 #		  },
@@ -483,7 +492,7 @@ __END__
 
 =head1 NAME
 
-Mac::AppleEvents::Simple - MacPerl module to do Apple Events more simply
+Mac::AppleEvents::Simple - Simple access to Mac::AppleEvents
 
 =head1 SYNOPSIS
 
@@ -503,13 +512,22 @@ Mac::AppleEvents::Simple - MacPerl module to do Apple Events more simply
 
 =head1 DESCRIPTION
 
-You should have the latest cpan-mac distribution:
+=head2 Requirements
+
+For MacPerl 5.2.0r4, you should have the latest cpan-mac distribution:
 
 	http://sourceforge.net/projects/cpan-mac/
 
-For more information, support, CVS, etc.:
+For MacPerl 5.6.1 and up, everything you need is included.
 
-	http://sourceforge.net/projects/mac-ae-simple/
+For Mac OS X, you should have the latest Mac::Carbon:
+
+	http://sourceforge.net/projects/macperl/
+
+Also note the differences between MacPerl and perl on Mac OS X listed
+in Mac::Carbon, especially regarding C<$^E>.
+
+=head2 Overview
 
 This is just a simple way to do Apple Events.  The example above was 
 previously done as:
@@ -526,10 +544,10 @@ previously done as:
 
 The building, sending, and disposing is done automatically.  The function 
 returns an object containing the parameters, including the C<AEPrint> 
-results of C<AEBuildAppleEvent> C<($event-E<gt>{EVENT})> and C<AESend>
-C<($event-E<gt>{REPLY})>.
+results of C<AEBuildAppleEvent> C<$event-E<gt>{EVENT}> and C<AESend>
+C<$event-E<gt>{REPLY}>.
 
-The raw AEDesc forms are in C<($event-E<gt>{EVT})> and C<($event-E<gt>{REP})>.
+The raw AEDesc forms are in C<$event-E<gt>{EVT}> and C<$event-E<gt>{REP}>.
 So if I also C<use>'d the Mac::AppleEvents module (or got the symbols via
 C<use Mac::AppleEvents::Simple ':all'>), I could extract the direct
 object from the reply like this:
@@ -591,7 +609,14 @@ The first three parameters are required.  The FORMAT and PARAMETERS
 are documented elsewhere; see L<Mac::AppleEvents> and L<macperlcat>.
 
 TARGET may be a four-character app ID or a hashref containing ADDRESSTYPE
-and ADDRESS.  For type TARGET, a PPC record can be packed with C<pack_ppc>.
+and ADDRESS.  Examples:
+
+	{ typeTargetID()            => pack_ppc(...)  }
+	{ typeTargetID()            => pack_eppc(...) }
+	{ typeProcessSerialNumber() => pack_psn(...)  }
+	{ typeProcessSerialNumber() => pack_pid(...)  }
+
+See the pack functions below for details.
 
 
 =item $EVENT = build_event(CLASSID, EVENTID, TARGET, FORMAT, PARAMETERS ...)
@@ -604,10 +629,6 @@ C<do_event>.
 
 =item $EVENT->send_event([GETREPLY, PRIORITY, TIMEOUT]);
 
-	***NOTE***
-	Previously, you could set $object->{REPLY}.  But REPLY was already
-	taken.  Whoops.  You now need to set $object->{GETREPLY}.
-
 For sending events differently than the defaults, which are C<kAEWaitReply>,
 C<kAENormalPriority>, and C<kNoTimeout>, or for re-sending an event.  The
 parameters are sticky for a given event, so:
@@ -617,6 +638,8 @@ parameters are sticky for a given event, so:
 
 
 =item $EVENT->handle_event(CLASSID, EVENTID, CODE [, SYS]);
+
+B<Note>: Untested under Mac OS X.  Testing and patches welcome.
 
 Sets up an event handler by passing CLASSID and EVENTID of the event
 to be handled.  If SYS is true, then it sets up a system-wide event handler,
@@ -680,12 +703,16 @@ Also, C<get> will attempt to convert other data into a more usable form
 
 =item pack_ppc(ID, NAME, SERVER[, ZONE])
 
+B<Note>: Not implemented under Mac OS X.
+
 Packs a PPC record suitable for using in C<build_event> and C<do_event>.
 Accepts the 4-character ID of the target app, the name of the app as it
 may appear in the PPC Chooser, and the server and zone it is on.  If
 not supplied, zone is assumed to be '*'.
 
 =item pack_eppc(ID, NAME, HOST)
+
+B<Note>: Not implemented under Mac OS X.
 
 Packs an EPPC record suitable for using in C<build_event> and C<do_event>.
 Accepts the 4-character ID of the target app, the name of the app as it
@@ -696,159 +723,26 @@ Requires Mac OS 9.
 
 Simply packs a PSN into a double long.
 
+=item pack_pid(PID)
+
+B<Note>: Mac OS X only.
+
+Converts a PID into a PSN, then calls C<pack_psn>.
+
 =back
 
 =head1 EXPORT
 
 Exports functions C<do_event>, C<build_event>, C<handle_event>,
-C<pack_ppc>, C<pack_eppc>, C<pack_psn>.  All the symbols from
+C<pack_ppc>, C<pack_eppc>, C<pack_psn>, C<pack_pid>.  All the symbols from
 Mac::AppleEvents are available in C<@EXPORT_OK> and through the
 C<all> export tag.
-
-=head1 HISTORY
-
-=over 4
-
-=item v1.02, Tuesday, May 7, 2002
-
-Fix typo in Makefile.PL.
-
-=item v1.01, Monday, January 14, 2002
-
-Make _getdata smarter.
-
-Added utxt coercion to text.  Catch errors in coercion.
-
-Change license to be that of Perl.
-
-=item v1.00, Monday, September 11, 2000
-
-Added C<handle_event> function.
-
-Use C<cluck> from the Carp module if available if C<$WARN> is greater
-than 1 (fall back to C<carp> if C<cluck> not available).
-
-
-=item v0.81, Tuesday, November 2, 1999
-
-Added requirement for Mac::AppleEvents version 1.22
-(included in distribution).
-
-Added C<type> method.
-
-Added EPPC addressing (Apple events over TCP/IP).  Seems to work
-as well as the PPC addressing.  Requires Mac OS 9.  Added
-C<pack_eppc>.
-
-
-=item v0.80, Friday, September 10, 1999
-
-Added PPC port addressing.  Still experimental, as I am working largely
-off empirical observation, rather than specs.  Added C<pack_ppc>.
-(Cameron Ashby E<lt>cameron@evolution.comE<gt>)
-
-Added C<pack_psn> to simply get a PSN into a long double.
-
-
-=item v0.72, Wednesday, September 1, 1999
-
-Fixed bug in C<_event_error> that did not return proper value,
-or clear C<$^E> properly.  (Francis Clarke E<lt>F.Clarke@swansea.ac.ukE<gt>)
-
-
-=item v0.71, Tuesday, June 8, 1999
-
-Added C<$DEBUG> global.  Will be used more.
-
-Added some coercions so certain types will be returned as typeChar
-from the C<get> method.
-
-
-=item v0.70, Friday, June 4, 1999
-
-Removed deprecated C<ae_send> function.  Use C<send_event> instead.
-
-Removed deprecated C<get_text> function.  Not needed anymore, use C<get>
-method instead.
-
-Cleaned up stuff.
-
-Improved error handling.  Will return on first error.  See docs above
-for more information.
-
-Made C<$Mac::AppleEvents::Simple::SWITCH> C<0> by default instead of C<1>.
-
-Added global C<%DESCS> to save AEDescs for disposal later.
-
-
-=item v0.65, May 30, 1999
-
-No longer return entire desc from C<get> if direct object not supplied.
-
-Error number put in C<$^E> if supplied.
-
-Added a bunch of stuff to C<%AE_GET>.
-
-C<get> method now automatically unpacks nested AE records and AE lists into
-perl hash and array references.
-
-
-=item v0.61, May 1, 1999
-
-Made default timeout C<kNoTimeOut>.
-
-Changed use of C<REPLY> for parameter to C<AESend> to C<GETREPLY>.
-C<REPLY> was already in use, D'oh!
-
-
-=item v0.60, January 28, 1999
-
-Added C<get> and C<data> methods.
-
-
-=item v0.52, September 30, 1998
-
-Re-upload, sigh.
-
-
-=item v0.51, September 29, 1998
-
-Fixed problems accepting parameters in C<send_event>.  Sped up
-switching routine significantly.
-
-
-=item v0.50, September 16, 1998
-
-Only C<LaunchApps> when sending event now if $SWITCH is nonzero or
-app is not already running.
-
-Added warnings for event errors if present and if C<$^W> is nonzero.
-Only works if event errors use standard keywords C<errs> or C<errn>.
-
-
-=item v0.10, June 2, 1998
-
-Changed C<new> to C<build_event>, and C<ae_send> to C<send_event>.
-
-Made default C<AESend> parameters overridable via C<send_event>.
-
-
-=item v0.03, June 1, 1998
-
-Added C<$SWITCH> global var to override making target app go to front.
-
-
-=item v0.02, May 19, 1998
-
-Here goes ...
-
-=back
 
 =head1 AUTHOR
 
 Chris Nandor E<lt>pudge@pobox.comE<gt>, http://pudge.net/
 
-Copyright (c) 1998-2002 Chris Nandor.  All rights reserved.  This program
+Copyright (c) 1998-2003 Chris Nandor.  All rights reserved.  This program
 is free software; you can redistribute it and/or modify it under the same
 terms as Perl itself.
 
@@ -857,10 +751,10 @@ terms as Perl itself.
 Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat, Inside Macintosh: 
 Interapplication Communication.
 
-	http://sourceforge.net/projects/mac-ae-simple/
+	http://projects.pudge.net/
 
 =cut
 
 =head1 VERSION
 
-v1.02, Tuesday, May 7, 2002
+v1.03, Monday, April 14, 2003

@@ -1,8 +1,14 @@
 use ExtUtils::MakeMaker;
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
+
 WriteMakefile(
-    'NAME'	=> 'Mac::AppleEvents::Simple',
-    'PREREQ_PM' => {'Mac::Apps::Launch' => '1.70', 'Mac::AppleEvents' => '1.22'},
-    'VERSION_FROM' => 'Simple.pm', # finds $VERSION
+	'NAME'			=> 'Mac::AppleEvents::Simple',
+	'VERSION_FROM'		=> 'Simple.pm',
+	'PREREQ_PM'	=> {
+    		'Mac::AppleEvents' => 1.25,
+    		'Mac::Processes'   => 1.04,
+    		'Test::More'       => 0,
+	},
+	'clean'	=> {
+		'FILES'	=> 'Mac-AppleEvents-Simple-*'
+	},
 );

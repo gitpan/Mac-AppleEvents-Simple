@@ -1,5 +1,8 @@
+.cvsignore
+.releaserc
+Changes
 MANIFEST
 Makefile.PL
 README
 Simple.pm
-test.pl
+t/simple.t
