@@ -7,9 +7,9 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..2\n"; }
+BEGIN { $| = 1; print "1..3\n"; }
 END {print "not ok 1\n" unless $loaded;}
-use Mac::AppleEvents::Simple;
+use Mac::AppleEvents::Simple ':all';
 $loaded = 1;
 print "ok 1\n";
 
@@ -28,3 +28,15 @@ if (
 } else {
 	print "not ok 2: upgrade MacPerl to 5.2.0r4 or better\n";
 }
+
+open FOO, ">Dev:Console:Foo" or die $!;
+select FOO;
+$|++;
+select STDOUT;
+print FOO "ha!\n";
+my $evt = build_event(qw/core clos McPL/,
+  "'----':obj {form:name, want:type(cwin), seld:TEXT(\@), from:'null'()}",
+  'Foo'
+);
+my $res = $evt->send_event(kAENoReply())->get;
+printf "%sok 3%s\n", $res ? ('not ', "<$res>") : ('', '');
