@@ -22,8 +22,8 @@ use Mac::Types;
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.6 2002/01/15 15:48:26 pudge Exp $';
-$VERSION  = '1.01';
+$REVISION = '$Id: Simple.pm,v 1.7 2002/05/08 03:00:20 pudge Exp $';
+$VERSION  = '1.02';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -709,6 +709,10 @@ C<all> export tag.
 
 =over 4
 
+=item v1.02, Tuesday, May 7, 2002
+
+Fix typo in Makefile.PL.
+
 =item v1.01, Monday, January 14, 2002
 
 Make _getdata smarter.
@@ -859,4 +863,4 @@ Interapplication Communication.
 
 =head1 VERSION
 
-v1.01, Monday, January 14, 2002
+v1.02, Tuesday, May 7, 2002

@@ -3,6 +3,6 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'NAME'	=> 'Mac::AppleEvents::Simple',
-    'PREREQ_PM' => ['Mac::Apps::Launch' => '1.70', 'Mac::AppleEvents' => '1.22'],
+    'PREREQ_PM' => {'Mac::Apps::Launch' => '1.70', 'Mac::AppleEvents' => '1.22'},
     'VERSION_FROM' => 'Simple.pm', # finds $VERSION
 );
