@@ -1,18 +1,26 @@
+* v1.08, Friday, October 31, 2003
+
+   Added pack_eppc_x() for creating a target to an application on
+   a remote computer, for Mac OS X.  Basic syntax:
+   
+       $target = pack_eppc_x('Finder', 'mac.example.com');
+
+
 * v1.07, Wednesday, October 29, 2003
 
-   Fix qdrt to put elements in correct order.
+   Fixed qdrt to put elements in correct order.
 
 
 * v1.06, Tuesday, June 24, 2003
 
-   Check that $ENUMREC is defined.
+   Checked that $ENUMREC is defined.
 
 
 * v1.05, Thursday, May 22, 2003
 
-   Add typeLongDateTime to AE_GET.
+   Added typeLongDateTime to AE_GET.
 
-   Use Mac::Errors for internal errors.
+   Used Mac::Errors for internal errors.
 
    Added t/pod.t.
 

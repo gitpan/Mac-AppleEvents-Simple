@@ -6,7 +6,7 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH
 
 use Carp;
 use Exporter;
-use Mac::AppleEvents 1.25;
+use Mac::AppleEvents 1.27;
 use Mac::Apps::Launch 1.80;
 use Mac::Processes 1.04;
 use Mac::Files;
@@ -18,13 +18,13 @@ use Mac::Errors '$MacError';
 @ISA = qw(Exporter Mac::AppleEvents);
 @EXPORT = qw(
 	do_event build_event handle_event
-	pack_ppc pack_eppc pack_psn pack_pid
+	pack_ppc pack_eppc pack_eppc_x pack_psn pack_pid
 );
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.15 2003/10/30 03:39:52 pudge Exp $';
-$VERSION  = '1.07';
+$REVISION = '$Id: Simple.pm,v 1.16 2003/10/31 09:51:04 pudge Exp $';
+$VERSION  = '1.08';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -171,6 +171,29 @@ sub pack_pid {
 }
 
 #-----------------------------------------------------------------
+
+sub pack_eppc_x {
+	my($name, $server, $uid, $pid, $user, $pass) = @_;
+
+	my $info;
+	$info = $user if defined $user;
+	$info .= ':' . $pass if defined $user && defined $pass;
+
+	my @query;
+	push @query, uid => $uid if $uid;
+	push @query, pid => $pid if $pid;
+
+	require URI;
+	my $uri = new URI;
+	$uri->scheme('http');
+	$uri->path($name);
+	$uri->host($server);
+	$uri->query_form(@query) if @query;
+	$uri->userinfo($info) if defined $info;
+	$uri =~ s/http/eppc/;
+
+	return $uri;
+}
 
 sub pack_ppc  { _pack_ppc('ppc',  @_) }
 sub pack_eppc { _pack_ppc('eppc', @_) }
@@ -716,12 +739,26 @@ not supplied, zone is assumed to be '*'.
 
 =item pack_eppc(ID, NAME, HOST)
 
-B<Note>: Not implemented under Mac OS X.
+B<Note>: Not implemented under Mac OS X (see L<pack_eppc_x>).
 
 Packs an EPPC record suitable for using in C<build_event> and C<do_event>.
 Accepts the 4-character ID of the target app, the name of the app as it
 may appear in the PPC Chooser, and the hostname of the machine it is on.
 Requires Mac OS 9.
+
+=item pack_eppc_x(NAME, HOST [, UID, PID, USERNAME, PASSWORD])
+
+B<Note>: Not implemented under Mac OS (see L<pack_eppc>).
+
+Packs an EPPC record suitable for using in C<build_event> and C<do_event>
+under Mac OS X.  Accepts the name of the app, the hostname of the machine
+it is on, and, optionally, the uid of the owner of the app, the process ID
+of the app, and the username/password to connect with.  Note that it is
+normally preferable to allow the Keychain to handle the username/password
+(enter it the first time it is asked for, and select "Add to Keychain?").
+Requires Mac OS X.
+
+B<Note>: the UID/PID stuff doesn't actually work for me, in my tests.  Huh.
 
 =item pack_psn(PSN)
 
@@ -761,4 +798,4 @@ Interapplication Communication.
 
 =head1 VERSION
 
-v1.07, Wednesday, October 29, 2003
+v1.08, Friday, October 31, 2003
