@@ -15,10 +15,10 @@ use Carp;
 #-----------------------------------------------------------------
 
 @ISA = qw(Exporter Mac::AppleEvents);
-@EXPORT = qw(do_event build_event);
+@EXPORT = qw(do_event build_event pack_ppc pack_psn);
 @EXPORT_OK = @Mac::AppleEvents::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.72';
+$VERSION = '0.80';
 $DEBUG  ||= 0;
 $SWITCH ||= 0;
 $WARN   ||= 0;
@@ -113,6 +113,38 @@ sub get {
 }
 
 #-----------------------------------------------------------------
+
+sub pack_psn {
+    my $psn = shift;
+    return pack 'll', 0, $psn;
+}
+
+#-----------------------------------------------------------------
+
+sub pack_ppc {
+    my $format = 'lsca33sca33sca33ca33ca33';
+    my $type   = 'PPCToolbox';
+    my($id, $name, $server, $zone) = @_;
+    $zone ||= '*';
+    my @ppcdata = (
+        0,                          # session id
+        0,                          # script code (smRoman English?)
+        length($name), $name,       # as in PPC Chooser
+        2,                          # portKindSelector, ppcByCreatorAndType
+                                    # should be 1, is 2?
+        8,                          # length of port string
+        $id . 'ep01',               # port string, why "ep01"?
+        1,                          # PPCLocationKind, PPCNBPLocation
+        length($server), $server,   # server name
+        length($type), $type,       # port type
+        length($zone), $zone,       # zone
+    );
+    my $targ = pack $format, @ppcdata;
+    print unpack $format, $targ if $DEBUG > 1;
+    return $targ;
+}
+
+#-----------------------------------------------------------------
 # Private methods
 #-----------------------------------------------------------------
 
@@ -144,6 +176,18 @@ sub _construct {
     $self->{CLASS} = shift or croak 'Not enough parameters in AE build';
     $self->{EVNT} = shift or croak 'Not enough parameters in AE build';
     $self->{APP} = shift or croak 'Not enough parameters in AE build';
+
+    if (ref $self->{APP} eq 'HASH') {
+        for (keys %{$self->{APP}}) {
+            $self->{ADDTYPE} = $_;
+            $self->{ADDRESS} = $self->{APP}{$_};
+            next;
+        }
+    } else {
+        $self->{ADDTYPE} = typeApplSignature;
+        $self->{ADDRESS} = $self->{APP};
+    }
+
     $self->{DESC} = shift || '';
     $self->{PARAMS} = [@_];
     $self;
@@ -162,8 +206,8 @@ sub _print_desc {
 sub _build_event {
     my $self = shift;
     $self->{EVT} = AEBuildAppleEvent(
-        $self->{CLASS}, $self->{EVNT}, typeApplSignature,
-        $self->{APP}, kAutoGenerateReturnID, kAnyTransactionID,
+        $self->{CLASS}, $self->{EVNT}, $self->{ADDTYPE},
+        $self->{ADDRESS}, kAutoGenerateReturnID, kAnyTransactionID,
         $self->{DESC}, @{$self->{PARAMS}}
     );
     $self->{ERROR} = $^E;
@@ -175,8 +219,10 @@ sub _build_event {
 sub _send_event {
     my $self = $_[0];
 
-    LaunchApps($self->{APP}, 0) unless IsRunning($self->{APP});
-    SetFront($self->{APP}) if $SWITCH;
+    if ($self->{ADDTYPE} eq typeApplSignature) {
+        LaunchApps($self->{APP}, 0) unless IsRunning($self->{APP});
+        SetFront($self->{APP}) if $SWITCH;
+    }
 
     $self->{R} = defined $_[1] ? $_[1] : $self->{GETREPLY} || kAEWaitReply;
     $self->{P} = defined $_[2] ? $_[2] : $self->{PRIORITY} || kAENormalPriority;
@@ -331,7 +377,7 @@ Mac::AppleEvents::Simple - MacPerl module to do Apple Events more simply
     die "There was a problem: $^E" if $^E;
     $evt->send_event(kAENoReply);
     die "There was a problem: $^E" if $^E;
-    
+
 
 =head1 DESCRIPTION
 
@@ -412,17 +458,21 @@ MacPerl 5.2.0r4 or better, and Mac::Apps::Launch 1.70.
 
 =over 4
 
-=item [$EVENT =] do_event(CLASSID, EVENTID, APPID, FORMAT, PARAMETERS ...)
+=item [$EVENT =] do_event(CLASSID, EVENTID, TARGET, FORMAT, PARAMETERS ...)
 
 The first three parameters are required.  The FORMAT and PARAMETERS
 are documented elsewhere; see L<Mac::AppleEvents> and L<macperlcat>.
 
+TARGET may be a four-character app ID or a hashref containing ADDRESSTYPE
+and ADDRESS.  For type TARGET, a PPC record can be packed with C<pack_ppc>.
 
-=item $EVENT = build_event(CLASSID, EVENTID, APPID, FORMAT, PARAMETERS ...)
+
+=item $EVENT = build_event(CLASSID, EVENTID, TARGET, FORMAT, PARAMETERS ...)
 
 This is for delayed execution of the event, or to build an event that will be 
 sent specially with C<send_event>.  Build it with C<build_event>, and then 
-send it with C<send_event> method.
+send it with C<send_event> method.  The parameters are the same as
+C<do_event>.
 
 
 =item $EVENT->send_event([GETREPLY, PRIORITY, TIMEOUT]);
@@ -465,6 +515,15 @@ returned for AE lists.
 Also, C<get> will attempt to convert other data into a more usable form
 (such as resolving aliases into paths).
 
+
+=item pack_ppc(ID, NAME, SERVER[, ZONE])
+
+Packs a PPC record suitable for using in C<build_event> and C<do_event>.
+Accepts the 4-character ID of the target app, the name of the app as it
+may appear in the PPC Chooser, and the server and zone it is on.  If
+not supplied, zone is assumed to be '*'.
+
+
 =back
 
 =head1 EXPORT
@@ -474,6 +533,14 @@ Exports functions C<do_event>, C<build_event>.
 =head1 HISTORY
 
 =over 4
+
+=item v0.80, Friday, September 10, 1999
+
+Added PPC port addressing.  Still experimental, as I am working largely
+off empirical observation, rather than specs.  Added C<pack_ppc>.
+(Cameron Ashby E<lt>cameron@evolution.comE<gt>)
+
+Added C<pack_psn> to simply get a PSN into a long double.
 
 =item v0.72, Wednesday, September 1, 1999
 
@@ -574,4 +641,4 @@ Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat.
 
 =head1 VERSION
 
-v0.72, Wednesday, September 1, 1999
+v0.80, Friday, September 10, 1999

@@ -1,4 +1,4 @@
-Thursday, July 8, 1999
+Friday, September 10, 1999
 
 This archive can always be obtained from:
 
@@ -104,15 +104,20 @@ REQUIREMENTS
     MacPerl 5.2.0r4 or better, and Mac::Apps::Launch 1.70.
 
 FUNCTIONS
-    [$EVENT =] do_event(CLASSID, EVENTID, APPID, FORMAT, PARAMETERS ...)
+    [$EVENT =] do_event(CLASSID, EVENTID, TARGET, FORMAT, PARAMETERS ...)
         The first three parameters are required. The FORMAT and PARAMETERS
         are documented elsewhere; see the Mac::AppleEvents manpage and the
         macperlcat manpage.
 
-    $EVENT = build_event(CLASSID, EVENTID, APPID, FORMAT, PARAMETERS ...)
+        TARGET may be a four-character app ID or a hashref containing
+        ADDRESSTYPE and ADDRESS. For type TARGET, a PPC record can be
+        packed with `pack_ppc'.
+
+    $EVENT = build_event(CLASSID, EVENTID, TARGET, FORMAT, PARAMETERS ...)
         This is for delayed execution of the event, or to build an event
         that will be sent specially with `send_event'. Build it with
-        `build_event', and then send it with `send_event' method.
+        `build_event', and then send it with `send_event' method. The
+        parameters are the same as `do_event'.
 
     $EVENT->send_event([GETREPLY, PRIORITY, TIMEOUT]);
             ***NOTE***
@@ -148,10 +153,27 @@ FUNCTIONS
         Also, `get' will attempt to convert other data into a more usable
         form (such as resolving aliases into paths).
 
+    pack_ppc(ID, NAME, SERVER[, ZONE])
+        Packs a PPC record suitable for using in `build_event' and
+        `do_event'. Accepts the 4-character ID of the target app, the name
+        of the app as it may appear in the PPC Chooser, and the server and
+        zone it is on. If not supplied, zone is assumed to be '*'.
+
 EXPORT
     Exports functions `do_event', `build_event'.
 
 HISTORY
+    v0.80, Friday, September 10, 1999
+        Added PPC port addressing. Still experimental, as I am working
+        largely off empirical observation, rather than specs. Added
+        `pack_ppc'. (Cameron Ashby <cameron@evolution.com>)
+
+        Added `pack_psn' to simply get a PSN into a long double.
+
+    v0.72, Wednesday, September 1, 1999
+        Fixed bug in `_event_error' that did not return proper value, or
+        clear `$^E' properly. (Francis Clarke <F.Clarke@swansea.ac.uk>)
+
     v0.71, Tuesday, June 8, 1999
         Added `$DEBUG' global. Will be used more.
 
@@ -232,7 +254,7 @@ SEE ALSO
     Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat.
 
 VERSION
-    v0.71, Friday, June 8, 1999
+    v0.80, Friday, September 10, 1999
 
 #============================================================================
 
