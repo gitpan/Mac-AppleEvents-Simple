@@ -1,12 +1,6 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 
-Tuesday, June 2, 1998
-
-This is Mac::AppleEvents::Simple 0.10, a simple interface to some
-Mac::AppleEvents functions.
-
-REQUIREMENTS:
-*MacPerl 5.2.0r4+ (might work with earlier versions, untested)
+Wednesday, September 16, 1998
 
 This archive can always be obtained from:
 
@@ -20,21 +14,157 @@ similar program to get at the archive.
 Please let me know how well it does(n't) work, and any changes you'd 
 like to see.
 
-NOTE: some significant changes ot the interface were made; new() and 
-ae_send() were changed to build_event() and send_event().  See the 
-embedded POD for more details.
+#============================================================================
+
+NAME
+    Mac::AppleEvents::Simple - MacPerl module to do Apple Events more
+    simply
+
+SYNOPSIS
+            #!perl -w
+            use Mac::AppleEvents::Simple;
+            use Mac::Files;  # for NewAliasMinimal()
+            $alias = NewAliasMinimal(scalar MacPerl::Volumes);
+            do_event(qw/aevt odoc MACS/, "'----':alis(\@\@)", $alias);
+
+            # [...]
+            use Mac::AppleEvents;  # for kAENoReply()
+            $evt = build_event(qw/aevt odoc MACS/, "'----':alis(\@\@)",
+$alias);
+            $evt->send_event(kAENoReply());
+
+DESCRIPTION
+    This is just a simple way to do Apple Events. The example above was
+    previously done as:
+
+            #!perl -w
+            use Mac::AppleEvents;
+            use Mac::Files;
+            $alias = NewAliasMinimal(scalar MacPerl::Volumes);
+            $evt = AEBuildAppleEvent(qw/aevt odoc sign MACS 0 0/,
+                    "'----':alis(\@\@)", $alias) or die $^E;
+            $rep = AESend($evt, kAEWaitReply()) or die $^E;
+            AEDisposeDesc($rep);
+            AEDisposeDesc($evt);
+
+    The building, sending, and disposing is done automatically. The
+    function returns an object containing the parameters, including the
+    `AEPrint()' results of `AEBuildAppleEvent()' `($event->{EVENT})' and
+    `AESend()' `($event->{REPLY})'.
+
+    The raw AEDesc forms are in `($event->{EVT})' and `($event->{REP})'.
+    So if I also used the `Mac::AppleEvents' module, I could extract the
+    direct object from the reply like this:
+
+            $dobj = AEPrint(AEGetParamDesc($event->{REP}, keyDirectObject()));
+
+    So you can still mess around with the events if you need to.
+
+    The sending of the event uses as its defaults `(kAEWaitReply(),
+    kAENormalPriority(), 3600*9999)'. To use different parameters, use
+    `build_event()' with `send_event()'.
+
+    Setting `$Mac::AppleEvents::Simple::SWITCH = 0' prevents target app
+    from going to the front on `_send_event()'.
+
+    Sending an event with `send_event()' or `do_event()' will check for
+    errors automatically, and if there is an error and the `-w' flag is on
+    (or `$^W' is nonzero), the error will be sent to `STDERR'. This will
+    also only happen if the event return an error in the standard `errn'
+    or `errs' keywords. If your app returns errors in another way, you can
+    roll your own warning system. This example assumes the direct object
+    in the reply is the error if it is a negative integer:
+
+        my $event = do_event( ... );
+        my_warn_for_this_app($event);
+
+        sub my_warn_for_this_app {
+            my $event = shift;
+            my $error = AEGetParamDesc($event->{REP}, keyDirectObject);
+            if ($error) {
+                my $err = $error->get;
+                if ($err =~ /^-\d+$/ && $^W) {
+                    warn "Application error: $err";
+                }
+                AEDisposeDesc($error);
+            }
+        }
+
+REQUIREMENTS
+    MacPerl 5.2.0r4 or better, and Mac::Apps::Launch 1.50.
+
+FUNCTIONS
+    [$EVENT =] do_event(CLASSID, EVENTID, APPID, FORMAT, PARAMETERS ...)
+        Documented above. More documentation to come as this thing gets
+        fleshed out more.
+
+    $EVENT = build_event(CLASSID, EVENTID, APPID, FORMAT, PARAMETERS ...)
+        This is for delayed execution of the event, or to build an event
+        that will be sent specially with `send_event()'. Build it with
+        `build_event()', and then send it with `send_event()' method. Not
+        sure how useful this is yet.
+
+    $EVENT->send_event([REPLY, PRIORITY, TIMEOUT]);
+        For sending events differntly than the default, which is
+        `(kAEWaitReply(), kAENormalPriority(), 3600*9999)', or re-sending
+        an event. The parameters are sticky for a given event, so:
+
+                $evt->send_event(kAENoReply());
+                $evt->send_event();  # kAENoReply() is still used
+
+    get_text(STRING);
+        This basically just strips out the curly quotes. It returns the
+        first text in curly quotes it finds in scalar context, and all of
+        them in a list in list context.
+
+EXPORT
+    Exports functions `do_event()', `build_event()', `get_text()'.
+
+HISTORY
+    v0.50, September 16, 1998
+        Only `LaunchApps()' when sending event now if $SWITCH is nonzero
+        or app is not already running.
+
+        Added warnings for event errors if present and if `$^W' is
+        nonzero. Only works if event errors use standard keywords `errs'
+        or `errn'.
+
+    v0.10, June 2, 1998
+        Changed `new()' to `build_event()', and `ae_send()' to
+        `send_event()'.
+
+        Made default `AESend()' parameters overridable via `send_event()'.
+
+    v0.03, June 1, 1998
+        Added `$SWITCH' global var to override making target app go to
+        front.
+
+    v0.02, May 19, 1998
+        Here goes ...
+
+AUTHOR
+    Chris Nandor <pudge@pobox.com> http://pudge.net/
+
+    Copyright (c) 1998 Chris Nandor. All rights reserved. This program is
+    free software; you can redistribute it and/or modify it under the same
+    terms as Perl itself. Please see the Perl Artistic License.
+
+SEE ALSO
+    Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat.
+
+#============================================================================
+
+- -- 
+Chris Nandor          mailto:pudge@pobox.com         http://pudge.net/
+%PGPKey = ('B76E72AD', [1024, '0824090B CE73CA10  1FF77F13 8180B6B6'])
 
 -----BEGIN PGP SIGNATURE-----
 Version: PGPfreeware 5.0 for non-commercial use <http://www.pgp.com>
 Charset: noconv
 
-iQCVAwUBNXSb+yhcZja3bnKtAQHVJQP9FdNBxvwArDNXBx9P6KWYBODRY7QaHuzx
-r+xphdlHQlBE3InaXbUtr/p8E8YuskQqtR6pg2zFpXas8mqlAqs0YyLMhaGKvfeT
-Yf7YijDW9ZBKFpjYlk8r4onbyNlC3LC9vGnA0BQHmYEVzZoDSASfpDkJGON3Kcur
-SiTawiyQKug=
-=e3p/
+iQCVAwUBNgBi9ShcZja3bnKtAQGfzAQAtRB7gBTnseesS9HJJNSp6ZqPJGFMpy3y
+XKiWjfnb26zn4GTWDPCiAgBk468FGcYBZE6UdULA70K7y3E3FbaTWV4XNlG5ps3/
+C3OlwuZcH3egnrbFRVPuTzjDrBscahfp4QieB4dgTG7l3OEXA/XW8cMvpfPfC2zB
+F9HpYAlg6ok=
+=ZCXx
 -----END PGP SIGNATURE-----
-
--- 
-Chris Nandor          mailto:pudge@pobox.com         http://pudge.net/
-%PGPKey = ('B76E72AD', [1024, '0824090B CE73CA10  1FF77F13 8180B6B6'])

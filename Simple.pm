@@ -1,23 +1,23 @@
 package Mac::AppleEvents::Simple;
 
 use Mac::AppleEvents;
-use Mac::Apps::Launch;
-use vars qw(@ISA @EXPORT $VERSION $SWITCH);
+use Mac::Apps::Launch 1.50;
+use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH);
 use strict;
 use Exporter;
 use Carp;
-@ISA = qw(Exporter);
+@ISA = qw(Exporter Mac::AppleEvents);
 @EXPORT = qw(do_event build_event get_text);
-$VERSION = sprintf("%d.%02d", q$Revision: 0.10 $ =~ /(\d+)\.(\d+)/);
-
+@EXPORT_OK = @Mac::AppleEvents::EXPORT;
+%EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
+$VERSION = '0.50';
 $SWITCH = 1;
 
 sub do_event {
 	my $self = bless _construct(@_), __PACKAGE__;
 	$self->_build_event();
 	$self->_send_event();
-	$self->_print_desc('EVT');
-	$self->_print_desc('REP');
+    $self->_sending();
 	$self;
 }
 
@@ -31,8 +31,7 @@ sub build_event {
 sub send_event {
 	my $self = shift;
 	$self->_send_event(@_);
-	$self->_print_desc('EVT');
-	$self->_print_desc('REP');
+    $self->_sending();
 	$self;
 }
 
@@ -43,6 +42,14 @@ sub get_text {
 	my($self, @arr) = $_[0];
 	push @arr, $1 while ($self =~ /Ò([^Ó]*)Ó/g);
 	return wantarray ? @arr : $arr[0];
+}
+
+sub _sending {
+    my $self = shift;
+	$self->_print_desc('EVT');
+	$self->_print_desc('REP');
+	$self->_event_error();
+    $self->_warn();    
 }
 
 sub _construct {
@@ -66,10 +73,8 @@ sub _send_event {
 	my $self = shift;
 
 	# note: if $SWITCH is 0, will not switch; but we want to run this
-	# if app is not already running.  but it would take longer to find
-	# out if app _is_ running than it would to just launch it anyway, 
-	# even if it is already running.
-	LaunchApps([$self->{APP}], $SWITCH);
+	# if app is not already running.
+	LaunchApps([$self->{APP}], $SWITCH) if ($SWITCH || IsRunning($self->{APP}));
 
 	$self->{R} = defined($_[0]) || $self->{REPLY}    || kAEWaitReply();
 	$self->{P} = defined($_[1]) || $self->{PRIORITY} || kAENormalPriority();
@@ -78,10 +83,37 @@ sub _send_event {
 	$self->{REP} = AESend(@{$self}{'EVT', 'R', 'P', 'T'}) or croak $^E;
 }
 
+sub _event_error {
+    my($self) = @_;
+    my($event, $errn, $errs, $error);
+    $event = $self->{REP};
+    return unless $event;
+
+    $errn = AEGetParamDesc($event, keyErrorNumber);
+    $errs = AEGetParamDesc($event, keyErrorString);
+    if ($errn) {
+      $error = " " . $errn->get;
+      AEDisposeDesc($errn);
+    }
+    if ($errs) {
+      $error .= sprintf(": %s", $errs->get);
+      AEDisposeDesc($errs);
+    }
+    $self->{ERROR} = $error ? "Application error$error" : undef;
+}
+
 sub _print_desc {
 	my $self = shift;
 	my %what = (EVT=>'EVENT', REP=>'REPLY');
 	$self->{$what{$_[0]}} = AEPrint($self->{$_[0]}) or croak $^E;
+}
+
+sub _warn {
+    my $self = shift;
+    my $error = $self->{ERROR};
+    if ($error && $^W) {
+        carp $error;
+    }
 }
 
 DESTROY {
@@ -145,6 +177,33 @@ C<build_event()> with C<send_event()>.
 Setting C<$Mac::AppleEvents::Simple::SWITCH = 0> prevents target app from 
 going to the front on C<_send_event()>.
 
+Sending an event with C<send_event()> or C<do_event()> will check for errors
+automatically, and if there is an error and the C<-w> flag is on (or C<$^W> is
+nonzero), the error will be sent to C<STDERR>.  This will also only happen if
+the event return an error in the standard C<errn> or C<errs> keywords.  If your
+app returns errors in another way, you can roll your own warning system.  This 
+example assumes the direct object in the reply is the error if it is a negative
+integer:
+
+    my $event = do_event( ... );
+    my_warn_for_this_app($event);
+
+    sub my_warn_for_this_app {
+        my $event = shift;
+        my $error = AEGetParamDesc($event->{REP}, keyDirectObject);
+        if ($error) {
+            my $err = $error->get;
+            if ($err =~ /^-\d+$/ && $^W) {
+                warn "Application error: $err";
+            }
+            AEDisposeDesc($error);
+        }
+    }
+
+=head1 REQUIREMENTS
+
+MacPerl 5.2.0r4 or better, and Mac::Apps::Launch 1.50.
+
 =head1 FUNCTIONS
 
 =over 4
@@ -169,6 +228,7 @@ are sticky for a given event, so:
 	$evt->send_event(kAENoReply());
 	$evt->send_event();  # kAENoReply() is still used
 
+
 =item get_text(STRING);
 
 This basically just strips out the curly quotes.  It returns the first text in 
@@ -184,6 +244,14 @@ Exports functions C<do_event()>, C<build_event()>, C<get_text()>.
 =head1 HISTORY
 
 =over 4
+
+=item v0.50, September 16, 1998
+
+Only C<LaunchApps()> when sending event now if $SWITCH is nonzero or
+app is not already running.
+
+Added warnings for event errors if present and if C<$^W> is nonzero.
+Only works if event errors use standard keywords C<errs> or C<errn>.
 
 =item v0.10, June 2, 1998
 
