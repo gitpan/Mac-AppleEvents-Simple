@@ -23,8 +23,8 @@ use Mac::Errors '$MacError';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.13 2003/05/23 03:43:04 pudge Exp $';
-$VERSION  = '1.05';
+$REVISION = '$Id: Simple.pm,v 1.14 2003/06/25 04:56:27 pudge Exp $';
+$VERSION  = '1.06';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -238,7 +238,7 @@ sub _getdata {
 	my $type = $desc->type;
 	my($ret, $keep);
 
-	if ($type eq typeEnumerated && defined &$ENUMREC) {
+	if ($type eq typeEnumerated && $ENUMREC && defined &$ENUMREC) {
 		$ret = $ENUMREC->($desc->get);
 	}
 
@@ -761,4 +761,4 @@ Interapplication Communication.
 
 =head1 VERSION
 
-v1.05, Thursday, May 22, 2003
+v1.06, Tuesday, June 24, 2003

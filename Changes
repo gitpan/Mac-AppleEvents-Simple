@@ -1,3 +1,8 @@
+* v1.06, Tuesday, June 24, 2003
+
+   Check that $ENUMREC is defined.
+
+
 * v1.05, Thursday, May 22, 2003
 
    Add typeLongDateTime to AE_GET.
