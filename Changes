@@ -1,3 +1,8 @@
+* v1.07, Wednesday, October 29, 2003
+
+   Fix qdrt to put elements in correct order.
+
+
 * v1.06, Tuesday, June 24, 2003
 
    Check that $ENUMREC is defined.

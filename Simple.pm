@@ -23,8 +23,8 @@ use Mac::Errors '$MacError';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.14 2003/06/25 04:56:27 pudge Exp $';
-$VERSION  = '1.06';
+$REVISION = '$Id: Simple.pm,v 1.15 2003/10/30 03:39:52 pudge Exp $';
+$VERSION  = '1.07';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -465,7 +465,7 @@ BEGIN {
 		},
 
 		typeQDRectangle()		=> sub {
-			return [ ($_[0]->get) ]; # [1,0,3,2]
+			return [ ($_[0]->get)[1,0,3,2] ];
 		},
 
 	);
@@ -761,4 +761,4 @@ Interapplication Communication.
 
 =head1 VERSION
 
-v1.06, Tuesday, June 24, 2003
+v1.07, Wednesday, October 29, 2003
