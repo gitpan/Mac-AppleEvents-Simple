@@ -18,7 +18,7 @@ use Carp;
 @EXPORT = qw(do_event build_event);
 @EXPORT_OK = @Mac::AppleEvents::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.71';
+$VERSION = '0.72';
 $DEBUG  ||= 0;
 $SWITCH ||= 0;
 $WARN   ||= 0;
@@ -197,22 +197,21 @@ sub _event_error {
     $event = $self->{REP};
     return unless $event;
 
-    if (my $errn = AEGetParamDesc($event, keyErrorNumber)) {
-        $self->{ERRNO} = $errn->get;
-        AEDisposeDesc($errn);
+    {
+        local $^E;
+        if (my $errn = AEGetParamDesc($event, keyErrorNumber)) {
+            $self->{ERRNO} = $errn->get;
+            AEDisposeDesc($errn);
+        }
+
+        if (my $errs = AEGetParamDesc($event, keyErrorString)) {
+            $self->{ERROR} = $errs->get;
+            AEDisposeDesc($errs);
+        }
     }
 
-    if (my $errs = AEGetParamDesc($event, keyErrorString)) {
-        $self->{ERROR} = $errs->get;
-        AEDisposeDesc($errs);
-    }
-
-    if (exists $self->{ERRNO}) {
-        $^E = $self->{ERRNO};
-        $self->{ERROR} ||= $^E;
-    }
-
-    $self;
+    $self->{ERROR} = $^E;
+    $self->{ERRNO} = 0+$^E;
 }
 
 #-----------------------------------------------------------------
@@ -287,8 +286,6 @@ BEGIN {
         },
 
         STXT => sub { _get_coerce($_[0], typeChar) },
-        itxt => sub { _get_coerce($_[0], typeChar) },
-        tTXT => sub { _get_coerce($_[0], typeChar) },
 
         QDpt                    => sub {
             my $string = $_[0]->data->get;
@@ -297,6 +294,15 @@ BEGIN {
         },
 
     );
+
+    %AE_GET = (%AE_GET,
+        itxt => $AE_GET{STXT},
+        tTXT => $AE_GET{STXT},
+#         UREC => sub {
+#             $AE_GET{typeAERecord()}->(AECoerceDesc(shift, typeAERecord));
+#         },
+    );
+
 }
 
 sub _get_coerce { AECoerceDesc(@_)->get }
@@ -469,6 +475,11 @@ Exports functions C<do_event>, C<build_event>.
 
 =over 4
 
+=item v0.72, Wednesday, September 1, 1999
+
+Fixed bug in C<_event_error> that did not return proper value,
+or clear C<$^E> properly.  (Francis Clarke E<lt>F.Clarke@swansea.ac.ukE<gt>)
+
 =item v0.71, Tuesday, June 8, 1999
 
 Added C<$DEBUG> global.  Will be used more.
@@ -563,4 +574,4 @@ Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat.
 
 =head1 VERSION
 
-v0.71, Friday, June 8, 1999
+v0.72, Wednesday, September 1, 1999
