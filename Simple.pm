@@ -1,7 +1,8 @@
 package Mac::AppleEvents::Simple;
 
 use Mac::AppleEvents;
-use Mac::Apps::Launch 1.50;
+use Mac::Processes;
+use Mac::Apps::Launch 1.60;
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH);
 use strict;
 use Exporter;
@@ -10,7 +11,7 @@ use Carp;
 @EXPORT = qw(do_event build_event get_text);
 @EXPORT_OK = @Mac::AppleEvents::EXPORT;
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
-$VERSION = '0.50';
+$VERSION = '0.52';
 $SWITCH = 1;
 
 sub do_event {
@@ -74,11 +75,21 @@ sub _send_event {
 
 	# note: if $SWITCH is 0, will not switch; but we want to run this
 	# if app is not already running.
-	LaunchApps([$self->{APP}], $SWITCH) if ($SWITCH || IsRunning($self->{APP}));
+	unless (IsRunning($self->{APP})) {
+    	LaunchApps([$self->{APP}], $SWITCH);
+    }
 
-	$self->{R} = defined($_[0]) || $self->{REPLY}    || kAEWaitReply();
-	$self->{P} = defined($_[1]) || $self->{PRIORITY} || kAENormalPriority();
-	$self->{T} = defined($_[2]) || $self->{PRIORITY} || 3600*9999;
+    if ($SWITCH) {
+        while (my($k, $v) = each %Process) {
+            if ($v->processSignature eq $self->{APP}) {
+                SetFrontProcess($k);
+            }
+        }
+    }
+
+	$self->{R} = defined($_[0]) ? $_[0] : $self->{REPLY}    || kAEWaitReply();
+	$self->{P} = defined($_[1]) ? $_[1] : $self->{PRIORITY} || kAENormalPriority();
+	$self->{T} = defined($_[2]) ? $_[2] : $self->{TIMEOUT}  || 3600*9999;
 
 	$self->{REP} = AESend(@{$self}{'EVT', 'R', 'P', 'T'}) or croak $^E;
 }
@@ -244,6 +255,15 @@ Exports functions C<do_event()>, C<build_event()>, C<get_text()>.
 =head1 HISTORY
 
 =over 4
+
+=item v0.52, September 30, 1998
+
+Re-upload, sigh.
+
+=item v0.51, September 29, 1998
+
+Fixed problems accepting parameters in C<send_event>.   Sped up
+switching routine significantly.
 
 =item v0.50, September 16, 1998
 

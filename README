@@ -1,6 +1,6 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 
-Wednesday, September 16, 1998
+Tuesday, September 29, 1998
 
 This archive can always be obtained from:
 
@@ -121,6 +121,10 @@ EXPORT
     Exports functions `do_event()', `build_event()', `get_text()'.
 
 HISTORY
+    v0.51, September 29, 1998
+        Fixed problems accepting parameters in `send_event'. Sped up
+        switching routine significantly.
+
     v0.50, September 16, 1998
         Only `LaunchApps()' when sending event now if $SWITCH is nonzero
         or app is not already running.
@@ -162,9 +166,9 @@ Chris Nandor          mailto:pudge@pobox.com         http://pudge.net/
 Version: PGPfreeware 5.0 for non-commercial use <http://www.pgp.com>
 Charset: noconv
 
-iQCVAwUBNgBi9ShcZja3bnKtAQGfzAQAtRB7gBTnseesS9HJJNSp6ZqPJGFMpy3y
-XKiWjfnb26zn4GTWDPCiAgBk468FGcYBZE6UdULA70K7y3E3FbaTWV4XNlG5ps3/
-C3OlwuZcH3egnrbFRVPuTzjDrBscahfp4QieB4dgTG7l3OEXA/XW8cMvpfPfC2zB
-F9HpYAlg6ok=
-=ZCXx
+iQCVAwUBNhFgpShcZja3bnKtAQEWGAP+Oqw9YHx+b5BrTafxMMqt2DdkrL/sBgdG
+hpJBui6Smb3ZYurJBs8ZlNJCpeJHintXG3pys4rdV6phKi+0Kaz4vOeqWjRVGaCO
+oVxSPeO2/qSy56G/RmhWfeZ2ygHFIItTN6Hj/IVzn6JwXbY1TdVaiDqF12I/VH1Q
+fM8o5+sBX4A=
+=PbE7
 -----END PGP SIGNATURE-----
