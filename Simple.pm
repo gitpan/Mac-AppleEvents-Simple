@@ -6,7 +6,7 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH
 
 use Carp;
 use Exporter;
-use Mac::AppleEvents 1.29;
+use Mac::AppleEvents 1.30;
 use Mac::Apps::Launch 1.81;
 use Mac::Processes 1.04;
 use Mac::Files;
@@ -24,8 +24,8 @@ use Time::Epoch 'epoch2perl';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.19 2004/02/18 07:55:11 pudge Exp $';
-$VERSION  = '1.11';
+$REVISION = '$Id: Simple.pm,v 1.20 2004/05/11 06:00:54 pudge Exp $';
+$VERSION  = '1.12';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -51,7 +51,7 @@ sub do_event {
 sub build_event {
 	my $self = bless _construct(@_), __PACKAGE__;
 	$self->_build_event       and return $self->_warn;
-	$self->_print_desc('EVT') and return $self->_warn;
+#	$self->_print_desc('EVT') and return $self->_warn;
 	$self;
 }
 
@@ -96,7 +96,10 @@ sub type {
 	return unless ref $d eq 'AEDesc';
 	return unless
 		defined($desc = AEGetParamDesc($d, $key || keyDirectObject));
-	return $desc->type;
+
+	my $type = $desc->type;
+	AEDisposeDesc($desc);
+	return $type;
 }
 
 #-----------------------------------------------------------------
@@ -140,6 +143,7 @@ sub get {
 				push @ret, _getdata(AEGetNthDesc($desc, $_));
 			}
 			# if scalar context, return ref instead?
+			AEDisposeDesc($desc);
 			return wantarray ? @ret : $ret[0];
 
 		} elsif ($desc->type eq typeAERecord) {
@@ -148,6 +152,7 @@ sub get {
 				my @d = AEGetNthDesc($desc, $_);
 				$ret{$d[1]} = _getdata($d[0]);
 			}
+			AEDisposeDesc($desc);
 			# if scalar context, return ref instead?
 			return %ret;
 		}
@@ -293,8 +298,8 @@ sub _getdata {
 
 sub _sending {
 	my $self = shift;
-	$self->_print_desc('EVT');
-	$self->_print_desc('REP');
+#	$self->_print_desc('EVT');
+#	$self->_print_desc('REP');
 	$self->_event_error;
 }
 
@@ -453,7 +458,9 @@ BEGIN {
 
 		typeAlias()			=> sub {
 			my $alis = $_[0]->data;
-			return ResolveAlias($alis) or die "Can't resolve alias: $MacError";
+			my $return = ResolveAlias($alis) or die "Can't resolve alias: $MacError";
+			$alis->dispose;
+			return $return;
 		},
 
 		typeObjectSpecifier()		=> sub {
@@ -482,7 +489,10 @@ BEGIN {
 		},
 
 		typeProcessSerialNumber() 	=> sub {
-			my $psn = join '', unpack 'LL', $_[0]->data->get;
+			my $handle = $_[0]->data;
+			my $num = $handle->get;
+			$handle->dispose;
+			my $psn = join '', unpack 'LL', $num;
 			$psn =~ s/^0+//;
 			return $psn;
 		},
@@ -492,8 +502,10 @@ BEGIN {
 		},
 
 		typeQDPoint()			=> sub {
-			my $string = $_[0]->data->get;
-			return [reverse unpack "s4s4", $string];
+			my $handle = $_[0]->data;
+			my $point = $handle->get;
+			$handle->dispose;
+			return [reverse unpack "s4s4", $point];
 		},
 
 		typeQDRectangle()		=> sub {
@@ -582,9 +594,10 @@ previously done as:
 	AEDisposeDesc($evt);
 
 The building, sending, and disposing is done automatically.  The function 
-returns an object containing the parameters, including the C<AEPrint> 
-results of C<AEBuildAppleEvent> C<$event-E<gt>{EVENT}> and C<AESend>
-C<$event-E<gt>{REPLY}>.
+returns an object containing the parameters.  (Previously, the C<AEPrint> 
+results of C<AEBuildAppleEvent> and C<AESend> would be in C<$event-E<gt>{EVENT}> 
+C<$event-E<gt>{REPLY}>, but this was wasting way too much memory, as some of
+these things got big; you can call C<AEPrint($event-E<gt>{REP})> yourself).
 
 The raw AEDesc forms are in C<$event-E<gt>{EVT}> and C<$event-E<gt>{REP}>.
 So if I also C<use>'d the Mac::AppleEvents module (or got the symbols via
@@ -805,9 +818,3 @@ Mac::AppleEvents, Mac::OSA, Mac::OSA::Simple, macperlcat, Inside Macintosh:
 Interapplication Communication.
 
 	http://projects.pudge.net/
-
-=cut
-
-=head1 VERSION
-
-v1.10, Wednesday, November 19, 2003

@@ -1,3 +1,12 @@
+* v1.12, Monday, May 10, 2004
+
+   Eliminate a bunch of memory leaks, where we didn't dipose of AEDescs
+   or Handles.
+
+   No longer automatically populate EVENT and REPLY keys with AEPrint results.
+   We fixed the memory leak in it, I think, but it was still an awful lot of
+   data to lug around for no good reason.
+
 * v1.11, Wednesday, February 18, 2004
 
    Added typeComp (coerce to float).
