@@ -7,7 +7,7 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH
 use Carp;
 use Exporter;
 use Mac::AppleEvents 1.30;
-use Mac::Apps::Launch 1.81;
+use Mac::Apps::Launch 1.90;
 use Mac::Processes 1.04;
 use Mac::Files;
 use Mac::Types;
@@ -24,8 +24,8 @@ use Time::Epoch 'epoch2perl';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.21 2004/05/18 17:41:17 pudge Exp $';
-$VERSION  = '1.13';
+$REVISION = '$Id: Simple.pm,v 1.22 2004/06/08 19:51:17 pudge Exp $';
+$VERSION  = '1.14';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -356,19 +356,19 @@ sub _send_event {
 	my $self = $_[0];
 
 	if ($self->{ADDTYPE} eq typeApplSignature) {
-		if (! _IsRunning($self->{ADDRESS})) {
+		if (! IsRunning($self->{ADDRESS})) {
 			LaunchApps($self->{ADDRESS}, 0) or
 				die "Can't launch '$self->{ADDRESS}': $MacError";
 		}
-		_SetFront($self->{ADDRESS}) if $SWITCH;
+		SetFront($self->{ADDRESS}) if $SWITCH;
 
 	} elsif ($self->{ADDTYPE} eq typeApplicationBundleID) {
-		my $path = LSFindApplicationForInfo(undef, $self->{ADDRESS});
-		if (! _IsRunning($path, 1)) {
+		my $path = LSFindApplicationForInfo('', $self->{ADDRESS});
+		if (! IsRunning($path, 1)) {
 			LaunchSpecs($path, 0) or
 				die "Can't launch '$self->{ADDRESS}': $MacError";
 		}
-		_SetFront($path, 1) if $SWITCH;
+		SetFront($path, 1) if $SWITCH;
 	}
 
 	$self->{R} = defined $_[1] ? $_[1] : $self->{GETREPLY} || kAEWaitReply;
@@ -541,39 +541,6 @@ sub _get_coerce {
 	my $data = AECoerceDesc(@_) or die $^E+0;
 	return $data->get;
 }
-
-#=============================================================================#
-# copied from Mac::Apps::Launch, add stuff for bundle IDs etc.
-sub _IsRunning {
-	my($address, $is_path) = @_;
-	while (my($k, $v) = each %Process) {
-		if ($is_path) {
-			return 1 if $v->processAppSpec =~ /^\Q$address\E/;
-		} else {
-			return 1 if $v->processSignature eq $address;
-		}
-	}
-	return;
-}
-
-sub _SetFront {
-	my($address, $is_path) = @_;
-	my $method = $is_path ? 'processAppSpec' : 'processSignature';
-	my $found = 0;
-	for my $psn (keys %Process) {
-		if ($is_path) {
-			$found = 1 if $Process{$psn}->processAppSpec =~ /^\Q$address\E/;
-		} else {
-			$found = 1 if $Process{$psn}->processSignature eq $address;
-		}
-		if ($found) {
-			SetFrontProcess($psn);
-			return 1;
-		}
-	}
-	return;
-}
-
 
 1;
 
@@ -853,7 +820,7 @@ C<all> export tag.
 
 Chris Nandor E<lt>pudge@pobox.comE<gt>, http://pudge.net/
 
-Copyright (c) 1998-2003 Chris Nandor.  All rights reserved.  This program
+Copyright (c) 1998-2004 Chris Nandor.  All rights reserved.  This program
 is free software; you can redistribute it and/or modify it under the same
 terms as Perl itself.
 

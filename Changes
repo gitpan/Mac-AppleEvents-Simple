@@ -1,3 +1,7 @@
+* v1.14, Tuesday, June 8, 2004
+
+   Use Mac::Apps::Launch once again for launching apps.
+
 * v1.13, Tuesday, May 18, 2004
 
    Handle launching and $SWITCHing of applications by bundle ID
