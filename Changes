@@ -1,3 +1,11 @@
+* v1.10, Wednesday, November 19, 2003
+
+   Fixes for $^E bug in perl 5.8.x (and make $^E handling more robust).
+
+   Change pack_pid() to use actual PID instead of converting to PSN,
+   using typeKernelProcessID instead of typeProcessSerialNumber.
+
+
 * v1.09, Sunday, November 2, 2003
 
    Oops, spelled URI "URL" in Makefile.PL.

@@ -6,7 +6,7 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION $SWITCH
 
 use Carp;
 use Exporter;
-use Mac::AppleEvents 1.27;
+use Mac::AppleEvents 1.28;
 use Mac::Apps::Launch 1.80;
 use Mac::Processes 1.04;
 use Mac::Files;
@@ -23,8 +23,8 @@ use Mac::Errors '$MacError';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.17 2003/11/03 04:30:03 pudge Exp $';
-$VERSION  = '1.09';
+$REVISION = '$Id: Simple.pm,v 1.18 2003/11/20 07:57:27 pudge Exp $';
+$VERSION  = '1.10';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -167,7 +167,7 @@ sub pack_psn {
 
 sub pack_pid {
 	my($pid) = @_;
-	return pack_psn(GetProcessForPID($pid));
+	return pack 'l', $pid;
 }
 
 #-----------------------------------------------------------------
@@ -339,8 +339,9 @@ sub _build_event {
 		$self->{ADDRESS}, kAutoGenerateReturnID, $self->{TRNS_ID},
 		$self->{DESC}, @{$self->{PARAMS}}
 	);
-	$self->{ERROR} = $MacError;
 	$self->{ERRNO} = $^E+0;
+	$self->{ERROR} = $MacError;
+	return $self->{ERRNO};
 }
 
 #-----------------------------------------------------------------
@@ -361,8 +362,9 @@ sub _send_event {
 	$self->{T} = defined $_[3] ? $_[3] : $self->{TIMEOUT}  || kNoTimeOut;
 
 	$self->{REP} = AESend(@{$self}{'EVT', 'R', 'P', 'T'});
-	$self->{ERROR} = $MacError;
 	$self->{ERRNO} = $^E+0;
+	$self->{ERROR} = $MacError;
+	return $self->{ERRNO};
 }
 
 #-----------------------------------------------------------------
@@ -388,8 +390,9 @@ sub _event_error {
 		}
 	}
 
-	$self->{ERROR} ||= $MacError;
 	$self->{ERRNO} ||= $^E+0;
+	$self->{ERROR} ||= $MacError;
+	return $self->{ERRNO};
 }
 
 #-----------------------------------------------------------------
@@ -623,11 +626,6 @@ example, the error is returned in the direct object parameter.
 	}
 
 
-=head1 REQUIREMENTS
-
-MacPerl 5.2.0r4 or better, and Mac::Apps::Launch 1.70.
-
-
 =head1 FUNCTIONS
 
 =over 4
@@ -640,10 +638,13 @@ are documented elsewhere; see L<Mac::AppleEvents> and L<macperlcat>.
 TARGET may be a four-character app ID or a hashref containing ADDRESSTYPE
 and ADDRESS.  Examples:
 
-	{ typeTargetID()            => pack_ppc(...)  }
-	{ typeTargetID()            => pack_eppc(...) }
-	{ typeProcessSerialNumber() => pack_psn(...)  }
-	{ typeProcessSerialNumber() => pack_pid(...)  }
+	{ typeApplSignature()       => '...'            }  # default
+	{ typeTargetID()            => pack_ppc(...)    }  # Mac OS only
+	{ typeTargetID()            => pack_eppc(...)   }  # Mac OS only
+	{ typeApplicationURL()      => pack_eppc_x(...) }  # Mac OS X
+	{ typeProcessSerialNumber() => pack_psn(...)    }
+	{ typeKernelProcessID()     => pack_pid(...)    }  # Mac OS X only
+	{ typeBundleID()            => '...'            }  # Mac OS X only
 
 See the pack functions below for details.
 
@@ -802,4 +803,4 @@ Interapplication Communication.
 
 =head1 VERSION
 
-v1.09, Sunday, November 2, 2003
+v1.10, Wednesday, November 19, 2003

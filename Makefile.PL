@@ -14,4 +14,5 @@ WriteMakefile(
 	'clean'	=> {
 		'FILES'	=> 'Mac-AppleEvents-Simple-*'
 	},
+	'NO_META'		=> 1,
 );
