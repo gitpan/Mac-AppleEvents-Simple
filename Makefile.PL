@@ -9,7 +9,7 @@ WriteMakefile(
     		'Mac::Processes'     => 1.04,
     		'Mac::Errors'        => 0.91,
     		'Test::More'         => 0,
-    		'URL'                => 0,
+    		'URI'                => 0,
 	},
 	'clean'	=> {
 		'FILES'	=> 'Mac-AppleEvents-Simple-*'

@@ -1,3 +1,8 @@
+* v1.09, Sunday, November 2, 2003
+
+   Oops, spelled URI "URL" in Makefile.PL.
+
+
 * v1.08, Friday, October 31, 2003
 
    Added pack_eppc_x() for creating a target to an application on

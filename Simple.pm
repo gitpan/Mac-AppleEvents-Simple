@@ -23,8 +23,8 @@ use Mac::Errors '$MacError';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.16 2003/10/31 09:51:04 pudge Exp $';
-$VERSION  = '1.08';
+$REVISION = '$Id: Simple.pm,v 1.17 2003/11/03 04:30:03 pudge Exp $';
+$VERSION  = '1.09';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -194,6 +194,8 @@ sub pack_eppc_x {
 
 	return $uri;
 }
+
+#-----------------------------------------------------------------
 
 sub pack_ppc  { _pack_ppc('ppc',  @_) }
 sub pack_eppc { _pack_ppc('eppc', @_) }
@@ -760,6 +762,8 @@ Requires Mac OS X.
 
 B<Note>: the UID/PID stuff doesn't actually work for me, in my tests.  Huh.
 
+B<Note>: the eppc port (for both Mac OS and Mac OS X) is 3031.
+
 =item pack_psn(PSN)
 
 Simply packs a PSN into a double long.
@@ -798,4 +802,4 @@ Interapplication Communication.
 
 =head1 VERSION
 
-v1.08, Friday, October 31, 2003
+v1.09, Sunday, November 2, 2003
