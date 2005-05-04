@@ -24,8 +24,8 @@ use Time::Epoch 'epoch2perl';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.24 2005/02/20 06:41:44 pudge Exp $';
-$VERSION  = '1.16';
+$REVISION = '$Id: Simple.pm,v 1.25 2005/05/04 05:42:39 pudge Exp $';
+$VERSION  = '1.17';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -156,10 +156,8 @@ sub get {
 			# if scalar context, return ref instead?
 			return %ret;
 		}
-
-	} else {
-		return _getdata($desc);
 	}
+	return _getdata($desc);
 }
 
 #-----------------------------------------------------------------
