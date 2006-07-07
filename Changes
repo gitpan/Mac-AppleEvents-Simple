@@ -1,3 +1,7 @@
+* v1.18, Thursday, July 6, 2006
+
+   Endian fix for typeLongDateTime.
+
 * v1.17, Tuesday, May 3, 2005
 
    In Tiger, apparently, AECountItems() now returns true for some "lists"

@@ -24,8 +24,8 @@ use Time::Epoch 'epoch2perl';
 @EXPORT_OK = (@EXPORT, @Mac::AppleEvents::EXPORT);
 %EXPORT_TAGS = (all => [@EXPORT, @EXPORT_OK]);
 
-$REVISION = '$Id: Simple.pm,v 1.25 2005/05/04 05:42:39 pudge Exp $';
-$VERSION  = '1.17';
+$REVISION = '$Id: Simple.pm,v 1.26 2006/07/07 06:44:37 pudge Exp $';
+$VERSION  = '1.18';
 $DEBUG	||= 0;
 $SWITCH ||= 0;
 $WARN	||= 0;
@@ -511,6 +511,19 @@ BEGIN {
 			return $psn;
 		},
 
+		typeLongDateTime() 		=> sub {
+			my $handle = $_[0]->data;
+			my $num = $handle->get;
+			$handle->dispose;
+			# typeLongDateTime is 64 bits, and the grep tosses out
+			# the high bits, which will be good for as long
+			# as the Unix 32-bit epoch lasts, which is good
+			# enoguh for now; but this is not 64-bit safe, at all;
+			# for that, we will use unpack 'Q' probably
+			my($ldt) = grep $_, unpack 'LL', $num;
+			return $^O eq 'MacOS' ? $ldt : epoch2perl($ldt, 'macos');
+		},
+
 		typeStyledText()		=> sub {
 			return _get_coerce($_[0], typeChar);
 		},
@@ -532,10 +545,6 @@ BEGIN {
 		typeUnicodeText()	=> $AE_GET{typeStyledText()},
 		typeIntlText()		=> $AE_GET{typeStyledText()},
 		typeAEText()		=> $AE_GET{typeStyledText()},
-		typeLongDateTime()	=> sub {
-			my $ldt = $AE_GET{typeProcessSerialNumber()}->($_[0]);
-			return $^O eq 'MacOS' ? $ldt : epoch2perl($ldt, 'macos');
-		}
 #		  UREC => sub {
 #			  $AE_GET{typeAERecord()}->(AECoerceDesc(shift, typeAERecord));
 #		  },
